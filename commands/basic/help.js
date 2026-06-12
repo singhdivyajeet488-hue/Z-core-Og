@@ -393,9 +393,6 @@ module.exports = {
     async renderHelpView(interaction, viewData, message = null) {
         const slashStats = this.calculateStats(viewData.slashCommands);
         const prefixStats = this.calculateStats(viewData.prefixCommands);
-        const totalStats = {
-            total: slashStats.total + prefixStats.total
-        };
 
         const displayComponents = [];
 
@@ -464,22 +461,20 @@ module.exports = {
             displayComponents.push(pageContainer);
         }
 
-        // Build Category Select Dropdown
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('help_menu_select')
-            .setPlaceholder('📁 Select a category or part...');
-
-        selectMenu.addOptions({
-            label: 'Home',
-            description: 'Main menu with statistics',
-            value: 'home',
-            emoji: '🏠',
-            default: viewData.currentPage === 0
-        });
+        // Build Category Select Dropdown options array securely
+        const menuOptions = [
+            {
+                label: 'Home',
+                description: 'Main menu with statistics',
+                value: 'home',
+                emoji: '🏠',
+                default: viewData.currentPage === 0
+            }
+        ];
 
         const activePages = viewData.chunkedPages[viewData.currentMode];
         activePages.forEach((page, idx) => {
-            selectMenu.addOptions({
+            menuOptions.push({
                 label: page.displayName,
                 description: `${page.commands.length} cmds, ${page.itemCount - page.commands.length} subs`,
                 value: `page_${idx + 1}`,
@@ -487,6 +482,11 @@ module.exports = {
                 default: viewData.currentPage === idx + 1
             });
         });
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('help_menu_select')
+            .setPlaceholder('📁 Select a category or part...')
+            .setOptions(menuOptions);
 
         const menuRow = new ActionRowBuilder().addComponents(selectMenu);
 
@@ -499,4 +499,4 @@ module.exports = {
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(viewData.currentPage === 0),
             new ButtonBuilder()
-                .set
+                
