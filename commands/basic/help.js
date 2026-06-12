@@ -1,14 +1,14 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { 
-    TextDisplayBuilder,
-    ContainerBuilder,
-    SeparatorBuilder,
-    SeparatorSpacingSize,
-    MessageFlags,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    StringSelectMenuBuilder
+    TextDisplayBuilder, 
+    ContainerBuilder, 
+    SeparatorBuilder, 
+    SeparatorSpacingSize, 
+    MessageFlags, 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle, 
+    StringSelectMenuBuilder 
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -146,13 +146,23 @@ module.exports = {
             });
         }
 
-        const CATEGORY_ICONS = this.getCategoryIcons ? this.getCategoryIcons() : {};
+        const CATEGORY_ICONS = {
+            media: "🎬",
+            basic: "📁",
+            utility: "🛠️",
+            moderation: "🛡️",
+            core: "🤖",
+            lavalink: "🎵",
+            fun: "🎮",
+            distube: "🎶",
+            setups: "⚙️",
+            audio: "🔊"
+        };
         const categoryIcon = CATEGORY_ICONS[cmd.category.toLowerCase()] || "📁";
         const prefix = cmd.type === 'slash' ? '/' : config.prefix || '!';
 
         const displayComponents = [];
 
-        // Header Container
         const headerContainer = new ContainerBuilder().setAccentColor(0x5865F2);
         headerContainer.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
@@ -162,7 +172,6 @@ module.exports = {
         displayComponents.push(headerContainer);
         displayComponents.push(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small));
 
-        // Info Container
         const infoContainer = new ContainerBuilder().setAccentColor(0x5865F2);
         let infoText = `**Category:** ${cmd.category}\n**Type:** ${cmd.type === 'slash' ? 'Slash Command' : 'Prefix Command'}\n**Total Subcommands:** ${cmd.subcommands.length}`;
         infoContainer.addTextDisplayComponents(
@@ -170,7 +179,6 @@ module.exports = {
         );
         displayComponents.push(infoContainer);
 
-        // Subcommands with smart chunking
         if (cmd.subcommands.length > 0) {
             displayComponents.push(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small));
             
@@ -201,7 +209,6 @@ module.exports = {
             }
         }
 
-        // Footer
         displayComponents.push(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small));
         const footerContainer = new ContainerBuilder().setAccentColor(0x95A5A6);
         footerContainer.addTextDisplayComponents(
@@ -397,7 +404,6 @@ module.exports = {
         const displayComponents = [];
 
         if (viewData.currentPage === 0) {
-            // 1. Stats Container
             const statsContainer = new ContainerBuilder().setAccentColor(0x5865F2);
             statsContainer.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
@@ -414,7 +420,6 @@ module.exports = {
             displayComponents.push(statsContainer);
             displayComponents.push(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small));
 
-            // 2. Navigation Guide Container
             const navContainer = new ContainerBuilder().setAccentColor(0x57F287);
             navContainer.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
@@ -429,7 +434,6 @@ module.exports = {
             displayComponents.push(navContainer);
             displayComponents.push(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small));
 
-            // 3. Footer Container
             const footerContainer = new ContainerBuilder().setAccentColor(0xFEE75C);
             footerContainer.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
@@ -443,8 +447,33 @@ module.exports = {
             const pages = viewData.chunkedPages[viewData.currentMode];
             const page = pages[pageIndex];
 
-            const pageContainer = new ContainerBuilder().setAccentColor(0x3498DB);
+            const pageContainer = new ContainerBuilder();
             let pageContent = `## 📁 ${page.displayName}\n\n`;
+
+            const categoryKey = page.category.toLowerCase();
+            if (categoryKey === 'media') {
+                pageContainer.setAccentColor(0xFF0000); 
+            } else if (categoryKey === 'basic') {
+                pageContainer.setAccentColor(0x34495E);
+            } else if (categoryKey === 'utility') {
+                pageContainer.setAccentColor(0xF1C40F);
+            } else if (categoryKey === 'moderation') {
+                pageContainer.setAccentColor(0xE74C3C);
+            } else if (categoryKey === 'core') {
+                pageContainer.setAccentColor(0x9B59B6);
+            } else if (categoryKey === 'lavalink') {
+                pageContainer.setAccentColor(0x1ABC9C);
+            } else if (categoryKey === 'fun') {
+                pageContainer.setAccentColor(0x2ECC71);
+            } else if (categoryKey === 'distube') {
+                pageContainer.setAccentColor(0xE67E22);
+            } else if (categoryKey === 'setups') {
+                pageContainer.setAccentColor(0x7F8C8D);
+            } else if (categoryKey === 'audio') {
+                pageContainer.setAccentColor(0x3498DB);
+            } else {
+                pageContainer.setAccentColor(0x5865F2);
+            }
 
             page.commands.forEach((cmd, idx) => {
                 const prefix = viewData.currentMode === 'slash' ? '/' : config.prefix || '!';
@@ -461,42 +490,9 @@ module.exports = {
             displayComponents.push(pageContainer);
         }
 
-        // Build Category Select Dropdown options array securely
-        const menuOptions = [
-            {
-                label: 'Home',
-                description: 'Main menu with statistics',
-                value: 'home',
-                emoji: '🏠',
-                default: viewData.currentPage === 0
-            }
-        ];
-
-        const activePages = viewData.chunkedPages[viewData.currentMode];
-        activePages.forEach((page, idx) => {
-            menuOptions.push({
-                label: page.displayName,
-                description: `${page.commands.length} cmds, ${page.itemCount - page.commands.length} subs`,
-                value: `page_${idx + 1}`,
-                emoji: '📁',
-                default: viewData.currentPage === idx + 1
-            });
-        });
-
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('help_menu_select')
-            .setPlaceholder('📁 Select a category or part...')
-            .setOptions(menuOptions);
+            .setPlaceholder('📁 Select a category or part...');
 
-        const menuRow = new ActionRowBuilder().addComponents(selectMenu);
-
-        // Standard Utility Buttons
-        const btnRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('help_prev')
-                .setLabel('Previous')
-                .setEmoji('⬅️')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(viewData.currentPage === 0),
-            new ButtonBuilder()
-                
+        // Safe array initialization to prevent components data parse schemes wrapper crash
+        const 
