@@ -1,20 +1,3 @@
-/*
- ██████╗ ██╗      █████╗  ██████╗███████╗██╗   ██╗████████╗
-██╔════╝ ██║     ██╔══██╗██╔════╝██╔════╝╚██╗ ██╔╝╚══██╔══╝
-██║  ███╗██║     ███████║██║     █████╗   ╚████╔╝    ██║   
-██║   ██║██║     ██╔══██║██║     ██╔══╝    ╚██╔╝     ██║   
-╚██████╔╝███████╗██║  ██║╚██████╗███████╗   ██║      ██║   
- ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝╚══════╝   ╚═╝      ╚═╝   
-
--------------------------------------
-📡 Discord : https://discord.gg/xQF9f9yUEM
-🌐 Website : https://glaceyt.com
-🎥 YouTube : https://youtube.com/@GlaceYT
-✅ Verified | 🧩 Tested | ⚙️ Stable
--------------------------------------
-> © 2025 GlaceYT.com | All rights reserved.
-*/
-
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { 
     TextDisplayBuilder,
@@ -417,9 +400,6 @@ module.exports = {
         const displayComponents = [];
 
         if (viewData.currentPage === 0) {
-            // REMOVED: All In One Bot Heading Text Display Container
-            // REMOVED: GlaceYT MediaGallery / Image Banner Container
-
             // 1. Stats Container
             const statsContainer = new ContainerBuilder().setAccentColor(0x5865F2);
             statsContainer.addTextDisplayComponents(
@@ -499,4 +479,24 @@ module.exports = {
 
         const activePages = viewData.chunkedPages[viewData.currentMode];
         activePages.forEach((page, idx) => {
-            selectMenu.addOptions(
+            selectMenu.addOptions({
+                label: page.displayName,
+                description: `${page.commands.length} cmds, ${page.itemCount - page.commands.length} subs`,
+                value: `page_${idx + 1}`,
+                emoji: '📁',
+                default: viewData.currentPage === idx + 1
+            });
+        });
+
+        const menuRow = new ActionRowBuilder().addComponents(selectMenu);
+
+        // Standard Utility Buttons
+        const btnRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_prev')
+                .setLabel('Previous')
+                .setEmoji('⬅️')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(viewData.currentPage === 0),
+            new ButtonBuilder()
+                .set
