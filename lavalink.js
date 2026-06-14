@@ -1,13 +1,10 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "GlaceYT",
-      password: "glace",
-      host: "de-01.strixnodes.com",
-      port: 2010,
+      name: "Jirayu v4",
+      host: "lavalink.jirayu.net",
+      port: 13592,
+      password: "youshallnotpass",
       secure: false
     }
-};           
-
-
-
+};
