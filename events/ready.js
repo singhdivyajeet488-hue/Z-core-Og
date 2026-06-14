@@ -80,7 +80,7 @@ module.exports = {
             if (customStatus) {
                 client.user.setPresence({
                     activities: [customStatus.activity],
-                    status: customStatus.activity.type === ActivityType.Streaming ? undefined : customStatus.status
+                    status: 'dnd' // FORCED TO DND (Overrides database entry)
                 });
                 console.log(`${colors.cyan}[STATUS]${colors.reset} Using custom status: ${customStatus.activity.name}`);
                 return;
@@ -90,8 +90,10 @@ module.exports = {
             if (config.status.songStatus) {
                 const songActivity = await getCurrentSongActivity();
                 if (songActivity) {
-                    client.user.setActivity(songActivity);
-                    //console.log(`${colors.cyan}[STATUS]${colors.reset} Using song status: ${songActivity.name}`);
+                    client.user.setPresence({
+                        activities: [songActivity],
+                        status: 'dnd' // FORCED TO DND (Overrides song system defaults)
+                    });
                     return;
                 }
             }
@@ -100,9 +102,8 @@ module.exports = {
             const next = config.status.rotateDefault[defaultIndex % config.status.rotateDefault.length];
             client.user.setPresence({
                 activities: [next],
-                status: next.type === ActivityType.Streaming ? undefined : 'dnd' // CHANGED FROM 'online' TO 'dnd'
+                status: 'dnd' // FORCED TO DND (Overrides default configuration)
             });
-            //console.log(`${colors.cyan}[STATUS]${colors.reset} Using default status: ${next.name}`);
             defaultIndex++;
         }
 
@@ -146,7 +147,7 @@ module.exports = {
             }, currentInterval);
         }
         
-       
+      
         checkAndUpdateInterval();
 
         console.log('\x1b[31m[ CORE ]\x1b[0m \x1b[32m%s\x1b[0m', 'Bot Activity Cycle Running ✅');
