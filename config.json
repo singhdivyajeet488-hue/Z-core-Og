@@ -2,7 +2,7 @@
     "token": "",
     "language": "en",
     "prefix": "!",
-    "mongodbUri": "",
+    "mongodbUri": "mongodb+srv://Zyvok:Zyvok@discordbot.pkru54b.mongodb.net/?appName=Discordbot",
     "excessCommands": {
         "other": true,
         "hentai": true,
