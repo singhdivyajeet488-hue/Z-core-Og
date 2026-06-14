@@ -1,15 +1,10 @@
-
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "GlaceYT",
-      password: "glace",
-      host: "de-01.strixnodes.com",
-      port: 2010,
-      secure: false
+      name: "AjieBlogs Public",
+      host: "lava-v4.ajieblogs.eu.org",
+      port: 443,
+      password: "https://dsc.gg/ajidevserver",
+      secure: true
     }
-};           
-
-
-
-
+};
