@@ -1,12 +1,8 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const voice = require('@discordjs/voice');
-const ffmpegPath = require('ffmpeg-static');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-
-// FFmpeg setup - Import fix
-voice.setFFmpegPath(ffmpegPath);
 
 const activeSessions = new Map();
 const messageQueue = new Map();
