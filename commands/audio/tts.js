@@ -1,28 +1,22 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, TextDisplayBuilder, ContainerBuilder } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState, setFFmpegPath } = require('@discordjs/voice');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const voice = require('@discordjs/voice');
 const ffmpegPath = require('ffmpeg-static');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-// FFmpeg setup
-setFFmpegPath(ffmpegPath);
+// FFmpeg setup - Import fix
+voice.setFFmpegPath(ffmpegPath);
 
 const activeSessions = new Map();
 const messageQueue = new Map();
-const userCooldowns = new Map();
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('tts-live')
-        .setDescription('Live TTS - Bot reads messages')
-        .addSubcommand(sub =>
-            sub.setName('start')
-                .setDescription('Start session')
-                .addStringOption(opt => opt.setName('language').setDescription('Language').addChoices(
-                    { name: 'English', value: 'en' }, { name: 'Hindi', value: 'hi' }
-                )))
-        .addSubcommand(sub => sub.setName('stop').setDescription('Stop session')),
+        .setDescription('Start Live TTS')
+        .addSubcommand(sub => sub.setName('start').setDescription('Start TTS').addStringOption(opt => opt.setName('language').setDescription('Language').addChoices({ name: 'English', value: 'en' }, { name: 'Hindi', value: 'hi' })))
+        .addSubcommand(sub => sub.setName('stop').setDescription('Stop TTS')),
 
     async execute(interaction) {
         await interaction.deferReply();
@@ -30,36 +24,33 @@ module.exports = {
         const guildId = interaction.guild.id;
 
         if (sub === 'start') {
-            const voiceChannel = interaction.member.voice.channel;
-            if (!voiceChannel) return this.sendError(interaction, 'Join a voice channel!');
-
+            const channel = interaction.member.voice.channel;
+            if (!channel) return interaction.editReply('❌ Join a voice channel!');
+            
             try {
-                const connection = joinVoiceChannel({
-                    channelId: voiceChannel.id,
+                const connection = voice.joinVoiceChannel({
+                    channelId: channel.id,
                     guildId: guildId,
                     adapterCreator: interaction.guild.voiceAdapterCreator,
                 });
 
-                // Connection stable hone ka wait
-                await entersState(connection, VoiceConnectionStatus.Ready, 30000);
-
-                const player = createAudioPlayer();
+                await voice.entersState(connection, voice.VoiceConnectionStatus.Ready, 30000);
+                const player = voice.createAudioPlayer();
                 connection.subscribe(player);
-
-                activeSessions.set(guildId, {
-                    connection, player, language: interaction.options.getString('language') || 'en',
-                    channelId: interaction.channel.id, isPlaying: false
-                });
+                
+                activeSessions.set(guildId, { connection, player, language: interaction.options.getString('language') || 'en', channelId: interaction.channel.id, isPlaying: false });
                 messageQueue.set(guildId, []);
-
+                
                 this.setupMessageListener(interaction.client, guildId);
                 await interaction.editReply('✅ TTS Live Started! Type `!tts <text>`');
             } catch (err) {
                 console.error(err);
-                await this.sendError(interaction, 'Failed to connect. Ensure bot has permissions.');
+                await interaction.editReply('❌ Failed to connect. Check permissions!');
             }
         } else {
-            this.cleanup(guildId);
+            const session = activeSessions.get(guildId);
+            if (session) session.connection.destroy();
+            activeSessions.delete(guildId);
             await interaction.editReply('🛑 TTS Stopped.');
         }
     },
@@ -68,7 +59,7 @@ module.exports = {
         const handler = async (msg) => {
             const session = activeSessions.get(guildId);
             if (!session || msg.author.bot || msg.channel.id !== session.channelId || !msg.content.startsWith('!tts ')) return;
-
+            
             const text = msg.content.slice(5).trim();
             if (!text) return;
 
@@ -81,7 +72,7 @@ module.exports = {
     async processQueue(guildId) {
         const session = activeSessions.get(guildId);
         const queue = messageQueue.get(guildId);
-        if (!session || !queue || queue.length === 0) return (session.isPlaying = false);
+        if (!session || !queue || queue.length === 0) return (session && (session.isPlaying = false));
 
         session.isPlaying = true;
         const item = queue.shift();
@@ -90,9 +81,10 @@ module.exports = {
 
         try {
             await this.downloadFile(ttsUrl, tempFile);
-            const resource = createAudioResource(tempFile);
+            const resource = voice.createAudioResource(tempFile);
             session.player.play(resource);
-            session.player.once(AudioPlayerStatus.Idle, () => {
+            
+            session.player.once(voice.AudioPlayerStatus.Idle, () => {
                 try { fs.unlinkSync(tempFile); } catch (e) {}
                 this.processQueue(guildId);
             });
@@ -110,14 +102,5 @@ module.exports = {
                 file.on('finish', resolve);
             }).on('error', reject);
         });
-    },
-
-    cleanup(guildId) {
-        const session = activeSessions.get(guildId);
-        if (session) session.connection.destroy();
-        activeSessions.delete(guildId);
-        messageQueue.delete(guildId);
-    },
-
-    sendError(i, msg) { i.editReply(`❌ ${msg}`); }
+    }
 };
