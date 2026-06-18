@@ -1,10 +1,10 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "Jirayu-Public",
-      password: "youshallnotpass",
-      host: "lavalink.jirayu.net",
-      port: 13592,
+      name: "TriniumHost-Public",
+      password: "free",
+      host: "lavalink.triniumhost.com",
+      port: 4333,
       secure: false
     }
 };
