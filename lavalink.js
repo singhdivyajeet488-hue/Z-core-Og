@@ -1,9 +1,9 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "TriniumHost-SSL",
-      password: "free",
-      host: "lavalink-v4.triniumhost.com",
+      name: "AjieBlogs-SSL",
+      password: "ajieblogs.eu.org",
+      host: "lava-v3.ajieblogs.eu.org",
       port: 443,
       secure: true
     }
