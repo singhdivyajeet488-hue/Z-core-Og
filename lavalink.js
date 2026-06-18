@@ -1,10 +1,10 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "AjieBlogs-SSL",
-      password: "ajieblogs.eu.org",
-      host: "lava-v3.ajieblogs.eu.org",
-      port: 443,
-      secure: true
+      name: "NyxBot-SG",
+      password: "nyxbot.app/support",
+      host: "sg1-nodelink.nyxbot.app",
+      port: 3000,
+      secure: false
     }
 };
