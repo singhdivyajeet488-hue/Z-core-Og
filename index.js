@@ -1,3 +1,26 @@
+// ==================== RIFFY SAFETY PATCH ====================
+// This prevents the "Cannot read properties of undefined (reading 'nodeFetchInfo')" crash
+try {
+    const structures = require('riffy/build/structures/Node');
+    if (structures && structures.Node && structures.Node.prototype) {
+        const originalOpen = structures.Node.prototype.open;
+        structures.Node.prototype.open = async function(...args) {
+            try {
+                return await originalOpen.apply(this, args);
+            } catch (err) {
+                if (err.message && err.message.includes('nodeFetchInfo')) {
+                    console.log(`[V2 LAVALINK] Safely bypassed nodeFetchInfo initialization error for node.`);
+                    return;
+                }
+                throw err;
+            }
+        };
+    }
+} catch (e) {
+    // If the path layout differs slightly in your version, fail silently and let the bot load
+}
+// ============================================================
+
 const { connectToDatabase } = require('./mongodb');
 const initializeBot = require('./utils/intializer');
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
