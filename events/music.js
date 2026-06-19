@@ -332,8 +332,6 @@ module.exports = (client) => {
                 let attachment = null;
 
                 try {
-    
-
                     cardBuffer = await dynamicCard({
                         thumbnailURL: track.info.thumbnail || track.info.artworkUrl || 'https://via.placeholder.com/300x300/DC92FF/FFFFFF?text=Music',
                         songTitle: track.info.title || 'Unknown Title',
@@ -351,6 +349,7 @@ module.exports = (client) => {
                     //console.error('Dynamic card error:', cardError);
                 }
 
+                // Create the main container with track info
                 let containerBuilder = advancedMessageManager.createV2Container('music')
                     .addTextDisplayComponents(
                         textDisplay => textDisplay.setContent('**🎵 NOW PLAYING**')
@@ -409,72 +408,112 @@ module.exports = (client) => {
                         );
                 }
 
-                const controlRow1 = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`v2_volume_down_${track.requester?.id || 'system'}`)
-                        .setEmoji('🔉')
-                        .setLabel('Vol -')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_pause_${track.requester?.id || 'system'}`)
-                        .setEmoji('⏸️')
-                        .setLabel('Pause')
-                        .setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_resume_${track.requester?.id || 'system'}`)
-                        .setEmoji('▶️')
-                        .setLabel('Resume')
-                        .setStyle(ButtonStyle.Success),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_skip_${track.requester?.id || 'system'}`)
-                        .setEmoji('⏭️')
-                        .setLabel('Skip')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_volume_up_${track.requester?.id || 'system'}`)
-                        .setEmoji('🔊')
-                        .setLabel('Vol +')
-                        .setStyle(ButtonStyle.Secondary)
-                );
+                // ===== NOW PLAYING BUTTONS (from mplay.js) =====
+                // Row 1: Seek buttons (-10s, -5s, +5s, +10s)
+                const row1 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`v2_seek_back_10_${guildId}`)
+                            .setLabel('⏪ -10s')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_seek_back_5_${guildId}`)
+                            .setLabel('◀️ -5s')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_seek_forward_5_${guildId}`)
+                            .setLabel('▶️ +5s')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_seek_forward_10_${guildId}`)
+                            .setLabel('⏩ +10s')
+                            .setStyle(ButtonStyle.Primary)
+                    );
 
-                const controlRow2 = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`v2_queue_${track.requester?.id || 'system'}`)
-                        .setEmoji('📜')
-                        .setLabel('Queue')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_lyrics_${track.requester?.id || 'system'}`)
-                        .setEmoji('🎤')
-                        .setLabel('Lyrics')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_loop_${track.requester?.id || 'system'}`)
-                        .setEmoji('🔁')
-                        .setLabel('Loop')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_shuffle_${track.requester?.id || 'system'}`)
-                        .setEmoji('🔀')
-                        .setLabel('Shuffle')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_stop_${track.requester?.id || 'system'}`)
-                        .setEmoji('⏹️')
-                        .setLabel('Stop')
-                        .setStyle(ButtonStyle.Danger)
-                );
+                // Row 2: Volume and Playback Speed buttons
+                const row2 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`v2_volume_down_${guildId}`)
+                            .setLabel('🔉 Vol -')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_volume_up_${guildId}`)
+                            .setLabel('🔊 Vol +')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_speed_0.5_${guildId}`)
+                            .setLabel('0.5x')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_speed_1.0_${guildId}`)
+                            .setLabel('1.0x')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_speed_1.5_${guildId}`)
+                            .setLabel('1.5x')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
 
+                // Row 3: More speed and controls
+                const row3 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`v2_speed_0.75_${guildId}`)
+                            .setLabel('0.75x')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_speed_1.25_${guildId}`)
+                            .setLabel('1.25x')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_speed_2.0_${guildId}`)
+                            .setLabel('2.0x')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_loop_${guildId}`)
+                            .setLabel(`🔄 ${player.loop || 'Loop'}`)
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_shuffle_${guildId}`)
+                            .setLabel('🔀 Shuffle')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                // Row 4: Control buttons (Pause, Skip, Stop, Queue, Lyrics)
+                const row4 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`v2_pause_${guildId}`)
+                            .setLabel(player.paused ? '▶️ Resume' : '⏸️ Pause')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_skip_${guildId}`)
+                            .setLabel('⏭️ Skip')
+                            .setStyle(ButtonStyle.Danger),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_stop_${guildId}`)
+                            .setLabel('⏹️ Stop')
+                            .setStyle(ButtonStyle.Danger),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_queue_${guildId}`)
+                            .setLabel('📋 Queue')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`v2_lyrics_${guildId}`)
+                            .setLabel('🎤 Lyrics')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                // Build the message with all components
                 const messageOptions = {
-                    components: [containerBuilder],
+                    components: [containerBuilder, row1, row2, row3, row4],
                     flags: MessageFlags.IsComponentsV2
                 };
 
                 if (attachment) {
                     messageOptions.files = [attachment];
                 }
-
-                messageOptions.components.push(controlRow1, controlRow2);
 
                 const message = await channel.send(messageOptions);
 
@@ -641,16 +680,19 @@ module.exports = (client) => {
             }
         });
 
+        // ===== UPDATED BUTTON HANDLER WITH ALL BUTTONS FROM MPLAY.JS =====
         client.on('interactionCreate', async (interaction) => {
             if (!interaction.isButton()) return;
 
             try {
-                const match = interaction.customId.match(/^v2_(volume_up|volume_down|pause|resume|skip|stop|queue|lyrics|loop|shuffle|clear)_(\w+)$/);
+                // Match all V2 button patterns
+                const match = interaction.customId.match(/^v2_(seek_back_10|seek_back_5|seek_forward_5|seek_forward_10|volume_down|volume_up|speed_[\d.]+|pause|resume|skip|stop|queue|lyrics|loop|shuffle|clear)_(\w+)$/);
                 if (!match) return;
 
-                const [, action, userId] = match;
+                const [, action, guildIdFromButton] = match;
+                const guildId = interaction.guildId;
 
-                const player = client.riffy.players.get(interaction.guildId);
+                const player = client.riffy.players.get(guildId);
                 if (!player) {
                     const noPlayerContainer = advancedMessageManager.createV2Container('warning')
                         .addTextDisplayComponents(
@@ -667,9 +709,9 @@ module.exports = (client) => {
                 const userVoiceChannel = interaction.member?.voice?.channel;
 
                 const isInSameChannel = botVoiceChannel && userVoiceChannel && botVoiceChannel.id === userVoiceChannel.id;
-                const isOriginalRequester = sessionManager.isAuthorized(interaction.guildId, interaction.user.id) || interaction.user.id === userId;
+                const isOriginalRequester = sessionManager.isAuthorized(guildId, interaction.user.id);
 
-                if (!isInSameChannel && !isOriginalRequester && userId !== 'system') {
+                if (!isInSameChannel && !isOriginalRequester) {
                     const authContainer = advancedMessageManager.createV2Container('error')
                         .addTextDisplayComponents(
                             textDisplay => textDisplay.setContent('**🚫 VOICE CHANNEL REQUIRED**\n\n**To control the music player, you must:**\n• Join the same voice channel as the bot\n• OR be the original session owner\n\n**Current Bot Channel:** ' + (botVoiceChannel ? botVoiceChannel.name : 'None') + '\n**Your Channel:** ' + (userVoiceChannel ? userVoiceChannel.name : 'None'))
@@ -682,217 +724,220 @@ module.exports = (client) => {
                 }
 
                 await interaction.deferReply({ ephemeral: true });
-                sessionManager.updateActivity(interaction.guildId);
+                sessionManager.updateActivity(guildId);
 
-                switch (action) {
-                    case 'volume_up':
-                        const newVolumeUp = Math.min(player.volume + 10, 100);
-                        player.setVolume(newVolumeUp);
+                // ===== HANDLE ALL BUTTON ACTIONS =====
+                switch (true) {
+                    // Seek buttons
+                    case action.startsWith('seek_back_10'): {
+                        const currentTime = player.position;
+                        const newTime = Math.max(0, currentTime - 10000);
+                        await player.seek(newTime);
+                        const seekBack10Container = advancedMessageManager.createV2Container('info')
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**⏪ REWIND 10 SECONDS**\nPosition: ${formatTime(newTime)}`));
+                        const reply = await interaction.editReply({ components: [seekBack10Container], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
+                        break;
+                    }
+                    
+                    case action.startsWith('seek_back_5'): {
+                        const currentTime = player.position;
+                        const newTime = Math.max(0, currentTime - 5000);
+                        await player.seek(newTime);
+                        const seekBack5Container = advancedMessageManager.createV2Container('info')
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**◀️ REWIND 5 SECONDS**\nPosition: ${formatTime(newTime)}`));
+                        const reply = await interaction.editReply({ components: [seekBack5Container], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
+                        break;
+                    }
+                    
+                    case action.startsWith('seek_forward_5'): {
+                        const currentTime = player.position;
+                        const duration = player.current?.info?.length || 0;
+                        const newTime = Math.min(duration, currentTime + 5000);
+                        await player.seek(newTime);
+                        const seekForward5Container = advancedMessageManager.createV2Container('info')
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**▶️ FORWARD 5 SECONDS**\nPosition: ${formatTime(newTime)}`));
+                        const reply = await interaction.editReply({ components: [seekForward5Container], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
+                        break;
+                    }
+                    
+                    case action.startsWith('seek_forward_10'): {
+                        const currentTime = player.position;
+                        const duration = player.current?.info?.length || 0;
+                        const newTime = Math.min(duration, currentTime + 10000);
+                        await player.seek(newTime);
+                        const seekForward10Container = advancedMessageManager.createV2Container('info')
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**⏩ FORWARD 10 SECONDS**\nPosition: ${formatTime(newTime)}`));
+                        const reply = await interaction.editReply({ components: [seekForward10Container], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
+                        break;
+                    }
 
+                    // Playback speed buttons
+                    case action.startsWith('speed_'): {
+                        const speedValue = parseFloat(action.split('_')[1]);
+                        if (!isNaN(speedValue) && speedValue > 0) {
+                            await player.setSpeed(speedValue);
+                            const speedContainer = advancedMessageManager.createV2Container('info')
+                                .addTextDisplayComponents(
+                                    textDisplay => textDisplay.setContent(`**⏩ PLAYBACK SPEED**\nSpeed set to: **${speedValue}x**`));
+                            const reply = await interaction.editReply({ components: [speedContainer], flags: MessageFlags.IsComponentsV2 });
+                            setTimeout(() => reply.delete().catch(() => { }), 3000);
+                        }
+                        break;
+                    }
+
+                    // Volume up
+                    case action === 'volume_up': {
+                        const newVolume = Math.min(player.volume + 10, 100);
+                        player.setVolume(newVolume);
                         const volumeUpContainer = advancedMessageManager.createV2Container('volume')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🔊 VOLUME INCREASED**\n\nVolume: **${newVolumeUp}%**\n${getVolumeBar(newVolumeUp)}\n\n*Perfect for jamming out!*`)
-                            );
-
-                        const volUpReply = await interaction.editReply({
-                            components: [volumeUpContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-
-                        setTimeout(() => volUpReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('volume'));
+                                textDisplay => textDisplay.setContent(`**🔊 VOLUME INCREASED**\n\nVolume: **${newVolume}%**\n${getVolumeBar(newVolume)}`));
+                        const reply = await interaction.editReply({ components: [volumeUpContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
+                    }
 
-                    case 'volume_down':
-                        const newVolumeDown = Math.max(player.volume - 10, 0);
-                        player.setVolume(newVolumeDown);
-
+                    // Volume down
+                    case action === 'volume_down': {
+                        const newVolume = Math.max(player.volume - 10, 0);
+                        player.setVolume(newVolume);
                         const volumeDownContainer = advancedMessageManager.createV2Container('volume')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🔉 VOLUME DECREASED**\n\nVolume: **${newVolumeDown}%**\n${getVolumeBar(newVolumeDown)}\n\n*${newVolumeDown === 0 ? 'Music is now muted.' : 'Quieter vibes activated.'}*`)
-                            );
-
-                        const volDownReply = await interaction.editReply({
-                            components: [volumeDownContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-
-                        setTimeout(() => volDownReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('volume'));
+                                textDisplay => textDisplay.setContent(`**🔉 VOLUME DECREASED**\n\nVolume: **${newVolume}%**\n${getVolumeBar(newVolume)}`));
+                        const reply = await interaction.editReply({ components: [volumeDownContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
+                    }
 
-                    case 'pause':
+                    // Pause
+                    case action === 'pause': {
                         player.pause(true);
-
                         const pauseContainer = advancedMessageManager.createV2Container('warning')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**⏸️ PLAYBACK PAUSED**\n\nMusic has been paused successfully.\n\n*Use the Resume button when ready to continue.*')
-                            );
-
-                        const pauseReply = await interaction.editReply({
-                            components: [pauseContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-
-                        setTimeout(() => pauseReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('pause_resume'));
+                                textDisplay => textDisplay.setContent('**⏸️ PLAYBACK PAUSED**\n\nMusic has been paused successfully.\n\n*Use the Resume button when ready to continue.*'));
+                        const reply = await interaction.editReply({ components: [pauseContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
+                    }
 
-                    case 'resume':
+                    // Resume
+                    case action === 'resume': {
                         player.pause(false);
-
                         const resumeContainer = advancedMessageManager.createV2Container('success')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**▶️ PLAYBACK RESUMED**\n\nMusic playback has been resumed.\n\n*Let the music flow! 🎵*')
-                            );
-
-                        const resumeReply = await interaction.editReply({
-                            components: [resumeContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-
-                        setTimeout(() => resumeReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('pause_resume'));
+                                textDisplay => textDisplay.setContent('**▶️ PLAYBACK RESUMED**\n\nMusic playback has been resumed.\n\n*Let the music flow! 🎵*'));
+                        const reply = await interaction.editReply({ components: [resumeContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
+                    }
 
-                    case 'skip':
+                    // Skip
+                    case action === 'skip': {
                         const currentTrack = player.current;
-                        await advancedMessageManager.cleanupGuildMessages(client, interaction.guildId, ['track']);
+                        await advancedMessageManager.cleanupGuildMessages(client, guildId, ['track']);
                         player.stop();
-
                         const skipContainer = advancedMessageManager.createV2Container('info')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**⏭️ TRACK SKIPPED**\n\n${currentTrack ? `**Skipped:** ${currentTrack.info.title}` : 'Current track skipped'}\n\n*${player.queue.length > 0 ? 'Moving to next track...' : 'Queue is empty - session will end.'}*`)
-                            );
-
-                        const skipReply = await interaction.editReply({
-                            components: [skipContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-
-                        setTimeout(() => skipReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('skip'));
+                                textDisplay => textDisplay.setContent(`**⏭️ TRACK SKIPPED**\n\n${currentTrack ? `**Skipped:** ${currentTrack.info.title}` : 'Current track skipped'}\n\n*${player.queue.length > 0 ? 'Moving to next track...' : 'Queue is empty - session will end.'}*`));
+                        const reply = await interaction.editReply({ components: [skipContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
+                    }
 
-                    case 'stop':
-                      
-                        lyricsStateManager.stopLyrics(interaction.guildId, true);
-
-                        if (lyricIntervals.has(interaction.guildId)) {
-                            clearInterval(lyricIntervals.get(interaction.guildId));
-                            lyricIntervals.delete(interaction.guildId);
+                    // Stop
+                    case action === 'stop': {
+                        lyricsStateManager.stopLyrics(guildId, true);
+                        if (lyricIntervals.has(guildId)) {
+                            clearInterval(lyricIntervals.get(guildId));
+                            lyricIntervals.delete(guildId);
                         }
-
-                        await advancedMessageManager.cleanupGuildMessages(client, interaction.guildId, ['lyrics']);
-                        await handlePlayerCleanup(client, interaction.guildId, player, 'Manual stop by user');
+                        await advancedMessageManager.cleanupGuildMessages(client, guildId, ['lyrics']);
+                        await handlePlayerCleanup(client, guildId, player, 'Manual stop by user');
                         player.destroy();
-                        sessionManager.endSession(interaction.guildId);
+                        sessionManager.endSession(guildId);
 
                         const stopContainer = advancedMessageManager.createV2Container('error')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**⏹️ MUSIC SESSION TERMINATED**\n\nSession stopped by user request.\n\n**🔧 Actions Performed:**\n• ⏹️ Playback completely stopped\n• 🗑️ Queue cleared and reset\n• 🔌 Player disconnected from voice\n• 🎤 Lyrics sessions permanently disabled\n• 🧹 All resources cleaned up\n\n**Ready for your next session!**')
-                            );
-
-                        const stopReply = await interaction.editReply({
-                            components: [stopContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
+                                textDisplay => textDisplay.setContent('**⏹️ MUSIC SESSION TERMINATED**\n\nSession stopped by user request.\n\n**🔧 Actions Performed:**\n• ⏹️ Playback completely stopped\n• 🗑️ Queue cleared and reset\n• 🔌 Player disconnected from voice\n• 🎤 Lyrics sessions permanently disabled\n• 🧹 All resources cleaned up'));
+                        const reply = await interaction.editReply({ components: [stopContainer], flags: MessageFlags.IsComponentsV2 });
 
                         const channel = client.channels.cache.get(player.textChannel);
                         if (channel) {
                             const channelStopContainer = advancedMessageManager.createV2Container('session_end')
                                 .addTextDisplayComponents(
-                                    textDisplay => textDisplay.setContent('**🎵 MUSIC SESSION ENDED**\nStopped by user request.\n\n*All resources have been cleaned up and the bot is ready for the next music session.*')
-                                );
-
-                            const stopMsg = await channel.send({
-                                components: [channelStopContainer],
-                                flags: MessageFlags.IsComponentsV2
-                            });
-
+                                    textDisplay => textDisplay.setContent('**🎵 MUSIC SESSION ENDED**\nStopped by user request.\n\n*All resources have been cleaned up.*'));
+                            const stopMsg = await channel.send({ components: [channelStopContainer], flags: MessageFlags.IsComponentsV2 });
                             advancedMessageManager.addQuickDeleteMessage(client, stopMsg, 'session_end');
                         }
-
-                        setTimeout(() => stopReply.delete().catch(() => { }), 3000);
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
+                    }
 
-                    case 'shuffle':
+                    // Shuffle
+                    case action === 'shuffle': {
                         if (!player.queue || player.queue.length === 0) {
                             const emptyContainer = advancedMessageManager.createV2Container('warning')
                                 .addTextDisplayComponents(
-                                    textDisplay => textDisplay.setContent('**❌ EMPTY QUEUE**\nCannot shuffle an empty queue.\n\n*Add some tracks first with `/music play`.*')
-                                );
-
-                            const emptyReply = await interaction.editReply({
-                                components: [emptyContainer],
-                                flags: MessageFlags.IsComponentsV2
-                            });
-
-                            setTimeout(() => emptyReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('warning'));
+                                    textDisplay => textDisplay.setContent('**❌ EMPTY QUEUE**\nCannot shuffle an empty queue.\n\n*Add some tracks first with `/music play`.*'));
+                            const reply = await interaction.editReply({ components: [emptyContainer], flags: MessageFlags.IsComponentsV2 });
+                            setTimeout(() => reply.delete().catch(() => { }), 3000);
                             return;
                         }
-
                         player.queue.shuffle();
-
                         const shuffleContainer = advancedMessageManager.createV2Container('success')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🔀 QUEUE SHUFFLED**\nThe music queue has been shuffled randomly!\n\n**📊 Queue Info:**\n• **Total Tracks:** ${player.queue.length}\n• **Order:** Completely randomized\n• **Next Up:** ${player.queue[0]?.info.title || 'None'}\n\n*Time for some musical surprises! 🎲*`)
-                            );
-
-                        const shuffleReply = await interaction.editReply({
-                            components: [shuffleContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-
-                        setTimeout(() => shuffleReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('shuffle'));
+                                textDisplay => textDisplay.setContent(`**🔀 QUEUE SHUFFLED**\nThe music queue has been shuffled randomly!\n\n**📊 Queue Info:**\n• **Total Tracks:** ${player.queue.length}\n• **Next Up:** ${player.queue[0]?.info.title || 'None'}`));
+                        const reply = await interaction.editReply({ components: [shuffleContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
+                    }
 
-                    case 'loop':
+                    // Loop
+                    case action === 'loop': {
                         const loopMode = player.loop === 'none' ? 'track' : player.loop === 'track' ? 'queue' : 'none';
                         player.setLoop(loopMode);
-
                         const loopContainer = advancedMessageManager.createV2Container('info')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🔁 LOOP MODE UPDATED**\n\n**Mode:** ${loopMode.toUpperCase()}\n\n${getLoopDescription(loopMode)}\n\n*Loop preferences saved for this session.*`)
-                            );
-
-                        const loopReply = await interaction.editReply({
-                            components: [loopContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-
-                        setTimeout(() => loopReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('loop'));
+                                textDisplay => textDisplay.setContent(`**🔁 LOOP MODE UPDATED**\n\n**Mode:** ${loopMode.toUpperCase()}\n\n${getLoopDescription(loopMode)}`));
+                        const reply = await interaction.editReply({ components: [loopContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
+                    }
 
-                    case 'queue':
+                    // Queue
+                    case action === 'queue': {
                         if (!player.queue || player.queue.length === 0) {
                             const emptyQueueContainer = advancedMessageManager.createV2Container('warning')
                                 .addTextDisplayComponents(
-                                    textDisplay => textDisplay.setContent('**📜 EMPTY QUEUE**\n\nNo tracks in queue.\n\n*Add tracks using `/music play <song>`*')
-                                );
-
-                            const emptyQueueReply = await interaction.editReply({
-                                components: [emptyQueueContainer],
-                                flags: MessageFlags.IsComponentsV2
-                            });
-
-                            setTimeout(() => emptyQueueReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('warning'));
+                                    textDisplay => textDisplay.setContent('**📜 EMPTY QUEUE**\n\nNo tracks in queue.\n\n*Add tracks using `/music play <song>`*'));
+                            const reply = await interaction.editReply({ components: [emptyQueueContainer], flags: MessageFlags.IsComponentsV2 });
+                            setTimeout(() => reply.delete().catch(() => { }), 3000);
                         } else {
                             await showV2Queue(client, player, interaction);
                         }
                         break;
+                    }
 
-                    case 'lyrics':
+                    // Lyrics
+                    case action === 'lyrics': {
                         await showV2Lyrics(client, player, interaction);
                         break;
+                    }
 
                     default:
                         const unknownContainer = advancedMessageManager.createV2Container('error')
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**❌ UNKNOWN ACTION**\n\nUnrecognized control action.')
-                            );
-
-                        const unknownReply = await interaction.editReply({
-                            components: [unknownContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-
-                        setTimeout(() => unknownReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('error'));
+                                textDisplay => textDisplay.setContent('**❌ UNKNOWN ACTION**\n\nUnrecognized control action.'));
+                        const reply = await interaction.editReply({ components: [unknownContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => reply.delete().catch(() => { }), 3000);
                         break;
                 }
             } catch (error) {
@@ -901,20 +946,13 @@ module.exports = (client) => {
                 try {
                     const errorContainer = advancedMessageManager.createV2Container('error')
                         .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent('**❌ INTERACTION ERROR**\n\nSomething went wrong processing your request.\n\n*Please try again or restart the music session.*')
-                        );
+                            textDisplay => textDisplay.setContent('**❌ INTERACTION ERROR**\n\nSomething went wrong processing your request.\n\n*Please try again or restart the music session.*'));
 
                     if (interaction.deferred) {
-                        const errorReply = await interaction.editReply({
-                            components: [errorContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
-                        setTimeout(() => errorReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('error'));
+                        const errorReply = await interaction.editReply({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 });
+                        setTimeout(() => errorReply.delete().catch(() => { }), 3000);
                     } else {
-                        await interaction.reply({
-                            components: [errorContainer],
-                            flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-                        });
+                        await interaction.reply({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
                     }
                 } catch (fallbackError) {
                     console.error('V2 Interaction fallback error:', fallbackError);
@@ -1239,7 +1277,6 @@ module.exports = (client) => {
                     try {
                      
                         if (!lyricsStateManager.isActive(guildId)) {
-                            //console.log(`🛑 UpdateLyrics stopped - guild ${guildId} not active`);
                             if (lyricIntervals.has(guildId)) {
                                 clearInterval(lyricIntervals.get(guildId));
                                 lyricIntervals.delete(guildId);
@@ -1249,7 +1286,6 @@ module.exports = (client) => {
 
                       
                         if (lyricsStateManager.isManuallyStopped(guildId)) {
-                            //console.log(`🛑 UpdateLyrics stopped - guild ${guildId} manually stopped`);
                             if (lyricIntervals.has(guildId)) {
                                 clearInterval(lyricIntervals.get(guildId));
                                 lyricIntervals.delete(guildId);
@@ -1259,8 +1295,6 @@ module.exports = (client) => {
 
                         const currentPlayer = client.riffy.players.get(guildId);
                         if (!currentPlayer || !currentPlayer.current || currentPlayer.current.info.title !== track.title) {
-                            //console.log(`🛑 UpdateLyrics stopped - track changed or player gone`);
-
                             lyricsStateManager.clearGuild(guildId);
 
                             if (lyricIntervals.has(guildId)) {
@@ -1328,7 +1362,6 @@ module.exports = (client) => {
                             components: [updatedContainer, lyricsControlRow],
                             flags: MessageFlags.IsComponentsV2
                         }).catch(() => {
-                           
                             lyricsStateManager.clearGuild(guildId);
                             if (lyricIntervals.has(guildId)) {
                                 clearInterval(lyricIntervals.get(guildId));
@@ -1404,9 +1437,8 @@ module.exports = (client) => {
                          
                             try {
                                 await lyricsMessage.delete();
-                                //console.log('✅ Lyrics message deleted immediately');
                             } catch (deleteError) {
-                                //console.warn('Could not delete lyrics message:', deleteError.code);
+                                console.warn('Could not delete lyrics message:', deleteError.code);
                             }
 
                     
@@ -1592,14 +1624,10 @@ module.exports = (client) => {
                 });
 
                 collector.on('end', (collected, reason) => {
-                    //console.log(`Lyrics collector ended: ${reason}`);
-
                     if (reason === 'nuclear_stop' || reason === 'manual_delete') {
-                       // console.log('Nuclear stop/manual delete - no cleanup needed');
                         return;
                     }
 
-              
                     lyricsStateManager.clearGuild(guildId);
 
                     if (lyricIntervals.has(guildId)) {
@@ -1628,9 +1656,8 @@ module.exports = (client) => {
                 setTimeout(() => successReply.delete().catch(() => { }), 5000);
 
             } catch (error) {
-                //console.error('V2 Live lyrics start error:', error);
+                console.error('V2 Live lyrics start error:', error);
 
-              
                 lyricsStateManager.clearGuild(guildId);
                 if (lyricIntervals.has(guildId)) {
                     clearInterval(lyricIntervals.get(guildId));
@@ -1641,9 +1668,6 @@ module.exports = (client) => {
 
         async function handlePlayerCleanup(client, guildId, player, reason) {
             try {
-                //console.log(`🧹 Starting complete cleanup for guild ${guildId}: ${reason}`);
-
-             
                 lyricsStateManager.clearGuild(guildId);
 
                 await advancedMessageManager.cleanupGuildMessages(client, guildId);
@@ -1659,8 +1683,6 @@ module.exports = (client) => {
                 }
 
                 sessionManager.endSession(guildId);
-
-                //console.log(`✅ Complete V2 cleanup finished for guild ${guildId}: ${reason}`);
             } catch (error) {
                 //console.error('V2 Player cleanup error:', error);
             }
@@ -1774,8 +1796,6 @@ module.exports = (client) => {
                         await handlePlayerCleanup(client, guildId, null, 'Orphaned resource cleanup');
                     }
                 }
-
-                //console.log(`V2 Cleanup completed for ${guildsWithResources.size} guilds`);
             } catch (error) {
                 //console.error("V2 Cleanup routine error:", error);
             }
@@ -1817,18 +1837,11 @@ module.exports = (client) => {
                 const initializeRiffy = async () => {
             try {
                 if (!client.isReady()) {
-                    //console.log('\x1b[33m[ V2 LAVALINK ]\x1b[0m Waiting for client to be ready...');
                     await new Promise(resolve => client.once('ready', resolve));
                 }
 
-                //console.log('\x1b[34m[ V2 LAVALINK ]\x1b[0m Client ready, initializing Riffy...');
-                
-              
                 client.riffy.init(client.user.id);
-                
-                //console.log('\x1b[34m[ V2 LAVALINK ]\x1b[0m Riffy.init() called, waiting for node connection...');
 
-              
                 await Promise.race([
                     new Promise((resolve) => {
                         client.riffy.once('nodeConnect', resolve);
@@ -1840,13 +1853,11 @@ module.exports = (client) => {
 
                 console.log('\x1b[35m[ V2 MUSIC ]\x1b[0m', '\x1b[32mAdvanced V2 Music System Active ✅\x1b[0m');
 
-            
                 setTimeout(async () => {
                     try {
                         for (const guild of client.guilds.cache.values()) {
                             await advancedMessageManager.cleanupGuildMessages(client, guild.id);
                         }
-                        //console.log('\x1b[34m[ V2 LAVALINK ]\x1b[0m Initial cleanup completed');
                     } catch (cleanupError) {
                         console.error('\x1b[33m[ V2 LAVALINK ]\x1b[0m Cleanup error:', cleanupError.message);
                     }
@@ -1856,7 +1867,6 @@ module.exports = (client) => {
                 console.error('\x1b[31m[ V2 LAVALINK ]\x1b[0m Initialization failed:', error.message);
                 console.error('\x1b[31m[ V2 LAVALINK ]\x1b[0m Stack:', error.stack);
                 
-              
                 console.log('\x1b[33m[ V2 LAVALINK ]\x1b[0m Attempting to verify Lavalink server...');
                 try {
                     const testUrl = `http${lavalinkConfig.lavalink.secure ? 's' : ''}://${lavalinkConfig.lavalink.host}:${lavalinkConfig.lavalink.port}/version`;
