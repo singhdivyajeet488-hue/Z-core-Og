@@ -660,7 +660,20 @@ module.exports = {
                         let player = await getOrCreatePlayer();
                         if (!player) return;
                 
-                  
+                        // Send loading message
+                        const loadingContainer = new ContainerBuilder()
+                            .setAccentColor(0xffa500)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**🔄 LOADING...**\nSearching for your track. Please wait...')
+                            );
+
+                        await interaction.editReply({ 
+                            components: [loadingContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
+
+                        // Track resolution logic
+                        let resolve;
                         if (query.includes('spotify.com')) {
                             try {
                                 const spotifyData = await getData(query);
@@ -722,21 +735,6 @@ module.exports = {
                                     player.play();
                                 }
                                 
-                                // Send now playing with buttons after a short delay
-                                setTimeout(async () => {
-                                    const updatedPlayer = client.riffy.players.get(guildId);
-                                    if (updatedPlayer && updatedPlayer.current) {
-                                        const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
-                                        if (nowPlayingEmbed) {
-                                            const reply = await interaction.editReply({ 
-                                                components: [nowPlayingEmbed], 
-                                                flags: MessageFlags.IsComponentsV2 
-                                            });
-                                            await createButtonCollector(reply, updatedPlayer);
-                                        }
-                                    }
-                                }, 1000);
-                                
                             } catch (spotifyError) {
                                 console.error('Spotify error:', spotifyError);
                                 
@@ -762,7 +760,6 @@ module.exports = {
                                 return;
                             }
                         }  
-                    
                         else if (query.includes('youtube.com') || query.includes('youtu.be')) {
                             let isPlaylist = query.includes('list=');
                             let isMix = query.includes('list=RD');
@@ -782,7 +779,7 @@ module.exports = {
                                 return;
                             }
                             
-                            const resolve = await client.riffy.resolve({ query, requester: user });
+                            resolve = await client.riffy.resolve({ query, requester: user });
                             if (!resolve || !resolve.tracks || resolve.tracks.length === 0) {
                                 const noResultsContainer = new ContainerBuilder()
                                     .setAccentColor(0xff4757)
@@ -811,22 +808,6 @@ module.exports = {
                                 if (!player.playing && !player.paused) {
                                     player.play();
                                 }
-                                
-                                // Send now playing with buttons after a short delay
-                                setTimeout(async () => {
-                                    const updatedPlayer = client.riffy.players.get(guildId);
-                                    if (updatedPlayer && updatedPlayer.current) {
-                                        const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
-                                        if (nowPlayingEmbed) {
-                                            const reply = await interaction.editReply({ 
-                                                components: [nowPlayingEmbed], 
-                                                flags: MessageFlags.IsComponentsV2 
-                                            });
-                                            await createButtonCollector(reply, updatedPlayer);
-                                        }
-                                    }
-                                }, 1000);
-                                
                             } else {
                                 const track = resolve.tracks[0];
                                 track.requester = {
@@ -839,28 +820,10 @@ module.exports = {
                                 if (!player.playing && !player.paused) {
                                     player.play();
                                 }
-                                
-                                // Send now playing with buttons after a short delay
-                                setTimeout(async () => {
-                                    const updatedPlayer = client.riffy.players.get(guildId);
-                                    if (updatedPlayer && updatedPlayer.current) {
-                                        const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
-                                        if (nowPlayingEmbed) {
-                                            const reply = await interaction.editReply({ 
-                                                components: [nowPlayingEmbed], 
-                                                flags: MessageFlags.IsComponentsV2 
-                                            });
-                                            await createButtonCollector(reply, updatedPlayer);
-                                        }
-                                    }
-                                }, 1000);
                             }
-                    
-                            
                         }
-                  
                         else {
-                            const resolve = await client.riffy.resolve({ query, requester: user });
+                            resolve = await client.riffy.resolve({ query, requester: user });
                             
                             if (!resolve || !resolve.tracks || resolve.tracks.length === 0) {
                                 const noResultsContainer = new ContainerBuilder()
@@ -888,22 +851,23 @@ module.exports = {
                             if (!player.playing && !player.paused) {
                                 player.play();
                             }
-                            
-                            // Send now playing with buttons after a short delay
-                            setTimeout(async () => {
-                                const updatedPlayer = client.riffy.players.get(guildId);
-                                if (updatedPlayer && updatedPlayer.current) {
-                                    const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
-                                    if (nowPlayingEmbed) {
-                                        const reply = await interaction.editReply({ 
-                                            components: [nowPlayingEmbed], 
-                                            flags: MessageFlags.IsComponentsV2 
-                                        });
-                                        await createButtonCollector(reply, updatedPlayer);
-                                    }
-                                }
-                            }, 1000);
                         }
+
+                        // Send now playing with buttons after a short delay
+                        setTimeout(async () => {
+                            const updatedPlayer = client.riffy.players.get(guildId);
+                            if (updatedPlayer && updatedPlayer.current) {
+                                const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
+                                if (nowPlayingEmbed) {
+                                    const reply = await interaction.editReply({ 
+                                        components: [nowPlayingEmbed], 
+                                        flags: MessageFlags.IsComponentsV2 
+                                    });
+                                    await createButtonCollector(reply, updatedPlayer);
+                                }
+                            }
+                        }, 1000);
+                        
                     } catch (error) {
                         console.error('Error resolving query:', error);
                     
@@ -1480,7 +1444,7 @@ module.exports = {
                         let player = await getOrCreatePlayer();
                         if (!player) return;
                     
-                      
+                        // Send loading message
                         const loadingContainer = new ContainerBuilder()
                             .setAccentColor(0xffa500)
                             .addTextDisplayComponents(
@@ -1491,7 +1455,6 @@ module.exports = {
                             components: [loadingContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                    
                     
                         let addedTracks = 0;
                         let failedTracks = 0;
@@ -1532,35 +1495,26 @@ module.exports = {
                             setTimeout(() => reply.delete().catch(() => {}), 8000);
                             return;
                         }
-                    
-                        const playlistContainer = new ContainerBuilder()
-                            .setAccentColor(0x2ecc71)
-                            .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**📋 PLAYLIST LOADED**')
-                            )
-                            .addSeparatorComponents(separator => separator)
-                            .addSectionComponents(
-                                section => section
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**${name}** is now playing!\n\n**Loading Summary:**\n• ✅ Successfully loaded: **${addedTracks}** tracks\n${failedTracks > 0 ? `• ❌ Failed to load: **${failedTracks}** tracks\n` : ''}• 🎵 Now in queue: **${player.queue.length}** total\n• ⏱️ Estimated duration: **~${Math.round(addedTracks * 3.5)} minutes**\n\n**Status:** ${player.playing ? 'Playing' : 'Starting playback...'}`
-                                        )
-                                    )
-                                    .setThumbnailAccessory(
-                                        thumbnail => thumbnail
-                                            .setURL(interaction.user.displayAvatarURL({ dynamic: true }))
-                                            .setDescription('Requested by')
-                                    )
-                            );
 
-                        const reply = await interaction.editReply({ 
-                            components: [playlistContainer], 
-                            flags: MessageFlags.IsComponentsV2 
-                        });
-                        setTimeout(() => reply.delete().catch(() => {}), 12000);
-                        
                         if (!player.playing && !player.paused) {
                             player.play();
                         }
+
+                        // Send now playing with buttons after a short delay
+                        setTimeout(async () => {
+                            const updatedPlayer = client.riffy.players.get(guildId);
+                            if (updatedPlayer && updatedPlayer.current) {
+                                const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
+                                if (nowPlayingEmbed) {
+                                    const reply = await interaction.editReply({ 
+                                        components: [nowPlayingEmbed], 
+                                        flags: MessageFlags.IsComponentsV2 
+                                    });
+                                    await createButtonCollector(reply, updatedPlayer);
+                                }
+                            }
+                        }, 1000);
+                        
                     } catch (error) {
                         console.error('Error playing playlist:', error);
                         
