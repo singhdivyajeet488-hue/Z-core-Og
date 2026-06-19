@@ -1,9 +1,9 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "Lavalink-AJIE-EU",
-      password: "https://dsc.gg/ajidevserver",
-      host: "lava-v4.ajieblogs.eu.org",
+      name: "TriniumHost-V3",
+      password: "kirito",
+      host: "lavalink.triniumhost.com",
       port: 443,
       secure: true
     }
