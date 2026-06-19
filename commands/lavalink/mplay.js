@@ -588,7 +588,7 @@ module.exports = {
                             .setStyle(ButtonStyle.Secondary),
                         new ButtonBuilder()
                             .setCustomId(`loop_${guildId}`)
-                            .setLabel(`🔄 ${player.loop || 'None'}`)
+                            .setLabel(`🔄 ${player.loop || 'Loop'}`)
                             .setStyle(ButtonStyle.Secondary),
                         new ButtonBuilder()
                             .setCustomId(`shuffle_${guildId}`)
@@ -865,8 +865,7 @@ module.exports = {
                             }
                         }
 
-                        // Send now playing with buttons after a short delay
-                        setTimeout(async () => {
+                        // Send now playing with buttons after a short delay - ONLY ONE MESSAGE                        setTimeout(async () => {
                             const updatedPlayer = client.riffy.players.get(guildId);
                             if (updatedPlayer && updatedPlayer.current) {
                                 const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
@@ -1512,7 +1511,7 @@ module.exports = {
                             player.play();
                         }
 
-                        // Send now playing with buttons after a short delay
+                        // Send now playing with buttons after a short delay - ONLY ONE MESSAGE
                         setTimeout(async () => {
                             const updatedPlayer = client.riffy.players.get(guildId);
                             if (updatedPlayer && updatedPlayer.current) {
