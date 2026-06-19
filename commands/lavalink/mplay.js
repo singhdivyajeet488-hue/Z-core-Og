@@ -1,10 +1,10 @@
 /*
- ██████▗  ██▗      ██████  ████████▗███████████▗██▗   ██▗█████████
-██▄▄▄▄▄  ██▄     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄██▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-██▌  ███ ██▌     ███████  ████████▌█████████████▌   ██▌█████████▌
-██▌   ██▌██▌     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄█████▄▄▄▄▄▄▄    ██▌█████▄▄▄▄▄ 
-█████████▌███████████████▌█████████▌█████████████▌   ██▌█████████▌
- ▀▀▀▀▀▀▀ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀▀▀▀▀▀▀▀
+ ██████╗ ██╗      █████╗  ██████╗███████╗██╗   ██╗████████╗
+██╔════╝ ██║     ██╔══██╗██╔════╝██╔════╝╚██╗ ██╔╝╚══██╔══╝
+██║  ███╗██║     ███████║██║     █████╗   ╚████╔╝    ██║   
+██║   ██║██║     ██╔══██║██║     ██╔══╝    ╚██╔╝     ██║   
+╚██████╔╝███████╗██║  ██║╚██████╗███████╗   ██║      ██║   
+ ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝╚══════╝   ╚═╝      ╚═╝   
 
 -------------------------------------
 📡 Discord : https://discord.gg/xQF9f9yUEM
@@ -14,7 +14,7 @@
 -------------------------------------
 > © 2025 GlaceYT.com | All rights reserved.
 */
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder } = require('discord.js');
 const musicIcons = require('../../UI/icons/musicicons');
 const cmdIcons = require('../../UI/icons/commandicons');
 const { autoplayCollection } = require('../../mongodb');
@@ -89,15 +89,6 @@ module.exports = {
                     option.setName('track')
                         .setDescription('Track number to remove.')
                         .setRequired(true)))
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('seek')
-                .setDescription('Seek to a specific position in the current track.')
-                .addIntegerOption(option =>
-                    option.setName('position')
-                        .setDescription('Seek position in seconds.')
-                        .setRequired(true)
-                        .setMinValue(1)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('createplaylist')
@@ -313,56 +304,6 @@ module.exports = {
                 return player;
             };
 
-            // Show queue as an embed
-            const showQueueEmbed = async (interaction, player) => {
-                if (!player || !player.queue || player.queue.length === 0) {
-                    return {
-                        embeds: [new EmbedBuilder()
-                            .setColor(0xff4757)
-                            .setTitle('📋 QUEUE')
-                            .setDescription('The queue is empty!')
-                            .setFooter({ text: 'Add songs with /music play' })
-                        ],
-                        ephemeral: true
-                    };
-                }
-
-                const queue = player.queue;
-                const queueList = queue.slice(0, 10).map((track, i) => 
-                    `**${i + 1}.** ${track.info.title} - ${track.info.author || 'Unknown'}`
-                ).join('\n');
-
-                const embed = new EmbedBuilder()
-                    .setColor(0xdc92ff)
-                    .setTitle('🎶 MUSIC QUEUE')
-                    .setDescription(queueList)
-                    .addFields(
-                        { name: '📊 Total Tracks', value: `${queue.length}`, inline: true },
-                        { name: '⏱️ Estimated Duration', value: `~${Math.round(queue.length * 3.5)} minutes`, inline: true },
-                        { name: '🔄 Loop Mode', value: player.loop || 'None', inline: true }
-                    )
-                    .setFooter({ text: `Requested by ${interaction.user.username}` })
-                    .setTimestamp();
-
-                if (queue.length > 10) {
-                    embed.setFooter({ text: `...and ${queue.length - 10} more tracks` });
-                }
-
-                return { embeds: [embed], ephemeral: true };
-            };
-
-            // Helper functions
-            const formatDuration = (ms) => {
-                const seconds = Math.floor(ms / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const hours = Math.floor(minutes / 60);
-                
-                if (hours > 0) {
-                    return `${hours}:${(minutes % 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
-                } else {
-                    return `${minutes}:${(seconds % 60).toString().padStart(2, '0')}`;
-                }
-            };
   
             switch (subcommand) {
                 case 'play': {
@@ -374,19 +315,7 @@ module.exports = {
                         let player = await getOrCreatePlayer();
                         if (!player) return;
                 
-                        // Send loading message
-                        const loadingContainer = new ContainerBuilder()
-                            .setAccentColor(0xffa500)
-                            .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**🔄 LOADING...**\nSearching for your track. Please wait...')
-                            );
-
-                        await interaction.editReply({ 
-                            components: [loadingContainer], 
-                            flags: MessageFlags.IsComponentsV2 
-                        });
-
-                        // Track resolution logic
+                  
                         if (query.includes('spotify.com')) {
                             try {
                                 const spotifyData = await getData(query);
@@ -444,10 +373,35 @@ module.exports = {
                                     }
                                 }
                         
-                                if (!player.playing && !player.paused) {
-                                    player.play();
-                                }
-                                
+                                const spotifyContainer = new ContainerBuilder()
+                                    .setAccentColor(0x1db954)
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent('**🎵 SPOTIFY INTEGRATION**')
+                                    )
+                                    .addSeparatorComponents(separator => separator)
+                                    .addSectionComponents(
+                                        section => section
+                                            .addTextDisplayComponents(
+                                                textDisplay => textDisplay.setContent(`**${spotifyData.type === 'track' ? '🎵 Track' : '📋 Playlist'} Added Successfully**\n\nAdded **${added}** track${added !== 1 ? 's' : ''} from Spotify to the queue.\n\n**Source:** ${spotifyData.name || 'Spotify Content'}`)
+                                            )
+                                            .setThumbnailAccessory(
+                                                thumbnail => thumbnail
+                                                    .setURL(user.displayAvatarURL({ dynamic: true }))
+                                                    .setDescription('Requested by')
+                                            )
+                                    )
+                                    .addSeparatorComponents(separator => separator)
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent(`**🎧 Queue Status:**\n• Tracks in Queue: **${player.queue.length}**\n• Now Playing: ${player.current ? '✅ Active' : '⏸️ Starting...'}\n• Estimated Time: ~${Math.round(added * 3.5)} minutes`)
+                                    );
+                        
+                                const reply = await interaction.editReply({ 
+                                    components: [spotifyContainer], 
+                                    flags: MessageFlags.IsComponentsV2 
+                                });
+                                setTimeout(() => reply.delete().catch(() => {}), 8000);
+                        
+                                if (!player.playing && !player.paused) player.play();
                             } catch (spotifyError) {
                                 console.error('Spotify error:', spotifyError);
                                 
@@ -473,6 +427,7 @@ module.exports = {
                                 return;
                             }
                         }  
+                    
                         else if (query.includes('youtube.com') || query.includes('youtu.be')) {
                             let isPlaylist = query.includes('list=');
                             let isMix = query.includes('list=RD');
@@ -518,9 +473,29 @@ module.exports = {
                                     player.queue.add(track);
                                 }
                     
-                                if (!player.playing && !player.paused) {
-                                    player.play();
-                                }
+                                const playlistContainer = new ContainerBuilder()
+                                    .setAccentColor(0xdc92ff)
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent('**📋 YOUTUBE PLAYLIST ADDED**')
+                                    )
+                                    .addSeparatorComponents(separator => separator)
+                                    .addSectionComponents(
+                                        section => section
+                                            .addTextDisplayComponents(
+                                                textDisplay => textDisplay.setContent(`**Playlist successfully queued!**\n\nAdded **${resolve.tracks.length}** tracks from YouTube playlist.\n\n**Queue Status:**\n• Total Tracks: ${player.queue.length}\n• Estimated Duration: ~${Math.round(resolve.tracks.length * 3.5)} minutes`)
+                                            )
+                                            .setThumbnailAccessory(
+                                                thumbnail => thumbnail
+                                                    .setURL(user.displayAvatarURL({ dynamic: true }))
+                                                    .setDescription('Requested by')
+                                            )
+                                    );
+                    
+                                const reply = await interaction.editReply({ 
+                                    components: [playlistContainer], 
+                                    flags: MessageFlags.IsComponentsV2 
+                                });
+                                setTimeout(() => reply.delete().catch(() => {}), 6000);
                             } else {
                                 const track = resolve.tracks[0];
                                 track.requester = {
@@ -530,11 +505,34 @@ module.exports = {
                                 };
                                 player.queue.add(track);
                     
-                                if (!player.playing && !player.paused) {
-                                    player.play();
-                                }
+                                const trackContainer = new ContainerBuilder()
+                                    .setAccentColor(0xdc92ff)
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent('**🎵 TRACK ADDED TO QUEUE**')
+                                    )
+                                    .addSeparatorComponents(separator => separator)
+                                    .addSectionComponents(
+                                        section => section
+                                            .addTextDisplayComponents(
+                                                textDisplay => textDisplay.setContent(`**${track.info.title}**\n\nSuccessfully added to queue!\n\n**Details:**\n• Duration: ${this.formatDuration(track.info.length)}\n• Position: #${player.queue.length}\n• Source: YouTube`)
+                                            )
+                                            .setThumbnailAccessory(
+                                                thumbnail => thumbnail
+                                                    .setURL(user.displayAvatarURL({ dynamic: true }))
+                                                    .setDescription('Requested by')
+                                            )
+                                    );
+                    
+                                const reply = await interaction.editReply({ 
+                                    components: [trackContainer], 
+                                    flags: MessageFlags.IsComponentsV2 
+                                });
+                                setTimeout(() => reply.delete().catch(() => {}), 6000);
                             }
+                    
+                            if (!player.playing && !player.paused) player.play();
                         }
+                  
                         else {
                             const resolve = await client.riffy.resolve({ query, requester: user });
                             
@@ -561,24 +559,32 @@ module.exports = {
                             };
                             player.queue.add(track);
                 
-                            if (!player.playing && !player.paused) {
-                                player.play();
-                            }
+                            const searchContainer = new ContainerBuilder()
+                                .setAccentColor(0xdc92ff)
+                                .addTextDisplayComponents(
+                                    textDisplay => textDisplay.setContent('**🎵 SEARCH RESULT ADDED**')
+                                )
+                                .addSeparatorComponents(separator => separator)
+                                .addSectionComponents(
+                                    section => section
+                                        .addTextDisplayComponents(
+                                            textDisplay => textDisplay.setContent(`**${track.info.title}**\n\nTrack found and added to queue!\n\n**Queue Info:**\n• Position: #${player.queue.length}\n• Duration: ${this.formatDuration(track.info.length)}\n• Quality: High Definition`)
+                                        )
+                                        .setThumbnailAccessory(
+                                            thumbnail => thumbnail
+                                                .setURL(user.displayAvatarURL({ dynamic: true }))
+                                                .setDescription('Requested by')
+                                        )
+                                );
+                
+                            const reply = await interaction.editReply({ 
+                                components: [searchContainer], 
+                                flags: MessageFlags.IsComponentsV2 
+                            });
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
+                
+                            if (!player.playing && !player.paused) player.play();
                         }
-
-                        // Just send a success message - now playing will be handled by music.js
-                        const successContainer = new ContainerBuilder()
-                            .setAccentColor(0x2ecc71)
-                            .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**✅ TRACK ADDED**\nYour track has been added to the queue.\n\n${player.current ? `**Now Playing:** ${player.current.info.title}` : '**Queue Position:** ' + player.queue.length}\n\n**Queue Length:** ${player.queue.length} tracks`)
-                            );
-
-                        const reply = await interaction.editReply({ 
-                            components: [successContainer], 
-                            flags: MessageFlags.IsComponentsV2 
-                        });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
-                        
                     } catch (error) {
                         console.error('Error resolving query:', error);
                     
@@ -626,23 +632,29 @@ module.exports = {
                         return;
                     }
                     
-                    // Just show a simple response - now playing is handled by music.js
                     const nowPlayingContainer = new ContainerBuilder()
                         .setAccentColor(0xdc92ff)
                         .addTextDisplayComponents(
                             textDisplay => textDisplay.setContent('**🎵 NOW PLAYING**')
                         )
                         .addSeparatorComponents(separator => separator)
-                        .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Artist:** ${currentTrack.info.author || 'Unknown'}\n**Duration:** ${formatDuration(currentTrack.info.length)}\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}`)
+                        .addSectionComponents(
+                            section => section
+                                .addTextDisplayComponents(
+                                    textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n${currentTrack.info.uri ? `**🔗 [Listen on Platform](${currentTrack.info.uri})**` : ''}\n\n**Track Details:**\n• Duration: ${this.formatDuration(currentTrack.info.length)}\n• Position: ${this.formatDuration(player.position)} / ${this.formatDuration(currentTrack.info.length)}\n• Volume: ${player.volume}%\n• Loop: ${player.loop || 'None'}\n\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}`)
+                                )
+                                .setThumbnailAccessory(
+                                    thumbnail => thumbnail
+                                        .setURL(currentTrack.info.artwork || currentTrack.requester?.avatarURL || 'https://via.placeholder.com/300x300')
+                                        .setDescription('Now Playing')
+                                )
                         );
-
+                    
                     const reply = await interaction.editReply({ 
                         components: [nowPlayingContainer], 
                         flags: MessageFlags.IsComponentsV2 
                     });
-                    setTimeout(() => reply.delete().catch(() => {}), 8000);
-                    
+                    setTimeout(() => reply.delete().catch(() => {}), 12000);
                     break;
                 }
 
@@ -897,94 +909,6 @@ module.exports = {
                     break;
                 }
 
-                case 'seek': {
-                    const player = await checkPlayerExists();
-                    if (!player) return;
-                    
-                    const currentTrack = player.current;
-                    if (!currentTrack) {
-                        const noTrackContainer = new ContainerBuilder()
-                            .setAccentColor(0xff4757)
-                            .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**❌ NO TRACK PLAYING**\nNo track is currently playing.\n\nUse `/music play` to start playing music before seeking.')
-                            );
-
-                        const reply = await interaction.editReply({ 
-                            components: [noTrackContainer], 
-                            flags: MessageFlags.IsComponentsV2 
-                        });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
-                        return;
-                    }
-                    
-                    const seekPosition = interaction.options.getInteger('position');
-                    const trackDuration = currentTrack.info.length;
-                    const seekMs = seekPosition * 1000; // Convert seconds to milliseconds
-                    
-                    if (seekMs > trackDuration) {
-                        const invalidContainer = new ContainerBuilder()
-                            .setAccentColor(0xff4757)
-                            .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**❌ INVALID SEEK POSITION**\nSeek position exceeds track duration.\n\n**Track Duration:** ${formatDuration(trackDuration)}\n**Your Input:** ${seekPosition} seconds (${formatDuration(seekMs)})\n\nPlease enter a position within ${Math.floor(trackDuration / 1000)} seconds.`)
-                            );
-
-                        const reply = await interaction.editReply({ 
-                            components: [invalidContainer], 
-                            flags: MessageFlags.IsComponentsV2 
-                        });
-                        setTimeout(() => reply.delete().catch(() => {}), 8000);
-                        return;
-                    }
-                    
-                    // Perform seek
-                    try {
-                        await player.seek(seekMs);
-                        
-                        const seekContainer = new ContainerBuilder()
-                            .setAccentColor(0x9b59b6)
-                            .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**⏩ TRACK POSITION UPDATED**')
-                            )
-                            .addSeparatorComponents(separator => separator)
-                            .addSectionComponents(
-                                section => section
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Seek Position:** ${formatDuration(seekMs)}\n**Track Duration:** ${formatDuration(trackDuration)}\n**Remaining:** ${formatDuration(trackDuration - seekMs)}\n**Progress:** ${Math.round((seekMs / trackDuration) * 100)}%`)
-                                    )
-                                    .setThumbnailAccessory(
-                                        thumbnail => thumbnail
-                                            .setURL(currentTrack.info.artwork || interaction.user.displayAvatarURL({ dynamic: true }))
-                                            .setDescription('Now Playing')
-                                    )
-                            )
-                            .addSeparatorComponents(separator => separator)
-                            .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🎵 Track Info:**\n• Volume: ${player.volume}%\n• Loop: ${player.loop || 'None'}\n• Requested by: ${currentTrack.requester?.username || 'Unknown'}`)
-                            );
-
-                        const reply = await interaction.editReply({ 
-                            components: [seekContainer], 
-                            flags: MessageFlags.IsComponentsV2 
-                        });
-                        setTimeout(() => reply.delete().catch(() => {}), 10000);
-                    } catch (seekError) {
-                        console.error('Seek error:', seekError);
-                        
-                        const seekErrorContainer = new ContainerBuilder()
-                            .setAccentColor(0xff4757)
-                            .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**❌ SEEK ERROR**\nFailed to seek to the specified position.\n\nThis could be due to:\n• Player connection issues\n• Unsupported track format\n• Network latency\n\nPlease try again or use a different position.')
-                            );
-
-                        const reply = await interaction.editReply({ 
-                            components: [seekErrorContainer], 
-                            flags: MessageFlags.IsComponentsV2 
-                        });
-                        setTimeout(() => reply.delete().catch(() => {}), 7000);
-                    }
-                    break;
-                }
-
                 case 'volume': {
                     const player = await checkPlayerExists();
                     if (!player) return;
@@ -1151,7 +1075,7 @@ module.exports = {
                         let player = await getOrCreatePlayer();
                         if (!player) return;
                     
-                        // Send loading message
+                      
                         const loadingContainer = new ContainerBuilder()
                             .setAccentColor(0xffa500)
                             .addTextDisplayComponents(
@@ -1162,6 +1086,7 @@ module.exports = {
                             components: [loadingContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
+                    
                     
                         let addedTracks = 0;
                         let failedTracks = 0;
@@ -1202,24 +1127,35 @@ module.exports = {
                             setTimeout(() => reply.delete().catch(() => {}), 8000);
                             return;
                         }
-
-                        if (!player.playing && !player.paused) {
-                            player.play();
-                        }
-
-                        // Just send a success message - now playing will be handled by music.js
-                        const successContainer = new ContainerBuilder()
+                    
+                        const playlistContainer = new ContainerBuilder()
                             .setAccentColor(0x2ecc71)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**✅ PLAYLIST LOADED**\nSuccessfully added ${addedTracks} tracks from **${name}**!\n\n**${failedTracks > 0 ? `⚠️ ${failedTracks} tracks failed to load` : ''}**\n\n**Queue Length:** ${player.queue.length} tracks`)
+                                textDisplay => textDisplay.setContent('**📋 PLAYLIST LOADED**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addSectionComponents(
+                                section => section
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent(`**${name}** is now playing!\n\n**Loading Summary:**\n• ✅ Successfully loaded: **${addedTracks}** tracks\n${failedTracks > 0 ? `• ❌ Failed to load: **${failedTracks}** tracks\n` : ''}• 🎵 Now in queue: **${player.queue.length}** total\n• ⏱️ Estimated duration: **~${Math.round(addedTracks * 3.5)} minutes**\n\n**Status:** ${player.playing ? 'Playing' : 'Starting playback...'}`
+                                        )
+                                    )
+                                    .setThumbnailAccessory(
+                                        thumbnail => thumbnail
+                                            .setURL(interaction.user.displayAvatarURL({ dynamic: true }))
+                                            .setDescription('Requested by')
+                                    )
                             );
 
                         const reply = await interaction.editReply({ 
-                            components: [successContainer], 
+                            components: [playlistContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 8000);
+                        setTimeout(() => reply.delete().catch(() => {}), 12000);
                         
+                        if (!player.playing && !player.paused) {
+                            player.play();
+                        }
                     } catch (error) {
                         console.error('Error playing playlist:', error);
                         
@@ -1823,12 +1759,12 @@ module.exports = {
 };
 
 /*
- ██████▗  ██▗      ██████  ████████▗███████████▗██▗   ██▗█████████
-██▄▄▄▄▄  ██▄     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄██▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-██▌  ███ ██▌     ███████  ████████▌█████████████▌   ██▌█████████▌
-██▌   ██▌██▌     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄█████▄▄▄▄▄▄▄    ██▌█████▄▄▄▄▄ 
-█████████▌███████████████▌█████████▌█████████████▌   ██▌█████████▌
- ▀▀▀▀▀▀▀ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀▀▀▀▀▀▀▀
+ ██████╗ ██╗      █████╗  ██████╗███████╗██╗   ██╗████████╗
+██╔════╝ ██║     ██╔══██╗██╔════╝██╔════╝╚██╗ ██╔╝╚══██╔══╝
+██║  ███╗██║     ███████║██║     █████╗   ╚████╔╝    ██║   
+██║   ██║██║     ██╔══██║██║     ██╔══╝    ╚██╔╝     ██║   
+╚██████╔╝███████╗██║  ██║╚██████╗███████╗   ██║      ██║   
+ ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝╚══════╝   ╚═╝      ╚═╝   
 
 -------------------------------------
 📡 Discord : https://discord.gg/xQF9f9yUEM
