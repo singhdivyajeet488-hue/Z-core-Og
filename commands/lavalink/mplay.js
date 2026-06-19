@@ -1,10 +1,10 @@
 /*
- ██████╗ ██╗      █████╗  ██████╗███████╗██╗   ██╗████████╗
-██╔════╝ ██║     ██╔══██╗██╔════╝██╔════╝╚██╗ ██╔╝╚══██╔══╝
-██║  ███╗██║     ███████║██║     █████╗   ╚████╔╝    ██║   
-██║   ██║██║     ██╔══██║██║     ██╔══╝    ╚██╔╝     ██║   
-╚██████╔╝███████╗██║  ██║╚██████╗███████╗   ██║      ██║   
- ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝╚══════╝   ╚═╝      ╚═╝   
+ ██████▗  ██▗      ██████  ████████▗███████████▗██▗   ██▗█████████
+██▄▄▄▄▄  ██▄     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄██▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+██▌  ███ ██▌     ███████  ████████▌█████████████▌   ██▌█████████▌
+██▌   ██▌██▌     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄█████▄▄▄▄▄▄▄    ██▌█████▄▄▄▄▄ 
+█████████▌███████████████▌█████████▌█████████████▌   ██▌█████████▌
+ ▀▀▀▀▀▀▀ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀▀▀▀▀▀▀▀
 
 -------------------------------------
 📡 Discord : https://discord.gg/xQF9f9yUEM
@@ -89,6 +89,15 @@ module.exports = {
                     option.setName('track')
                         .setDescription('Track number to remove.')
                         .setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('seek')
+                .setDescription('Seek to a specific position in the current track.')
+                .addIntegerOption(option =>
+                    option.setName('position')
+                        .setDescription('Seek position in seconds.')
+                        .setRequired(true)
+                        .setMinValue(1)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('createplaylist')
@@ -392,7 +401,7 @@ module.exports = {
                                     )
                                     .addSeparatorComponents(separator => separator)
                                     .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**🎧 Queue Status:**\n• Tracks in Queue: **${player.queue.length}**\n• Now Playing: ${player.current ? '✅ Active' : '⏸️ Starting...'}\n• Estimated Time: ~${Math.round(added * 3.5)} minutes`)
+                                        textDisplay => textDisplay.setContent(`**🎧 Queue Status:**\n• Tracks in Queue: **${player.queue.length}**\n• Now Playing: ${player.current ? '✅ Active' : '⏳ Starting...'}\n• Estimated Time: ~${Math.round(added * 3.5)} minutes`)
                                     );
                         
                                 const reply = await interaction.editReply({ 
@@ -906,6 +915,94 @@ module.exports = {
                         flags: MessageFlags.IsComponentsV2 
                     });
                     setTimeout(() => reply.delete().catch(() => {}), 7000);
+                    break;
+                }
+
+                case 'seek': {
+                    const player = await checkPlayerExists();
+                    if (!player) return;
+                    
+                    const currentTrack = player.current;
+                    if (!currentTrack) {
+                        const noTrackContainer = new ContainerBuilder()
+                            .setAccentColor(0xff4757)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**❌ NO TRACK PLAYING**\nNo track is currently playing.\n\nUse `/music play` to start playing music before seeking.')
+                            );
+
+                        const reply = await interaction.editReply({ 
+                            components: [noTrackContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
+                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        return;
+                    }
+                    
+                    const seekPosition = interaction.options.getInteger('position');
+                    const trackDuration = currentTrack.info.length;
+                    const seekMs = seekPosition * 1000; // Convert seconds to milliseconds
+                    
+                    if (seekMs > trackDuration) {
+                        const invalidContainer = new ContainerBuilder()
+                            .setAccentColor(0xff4757)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**❌ INVALID SEEK POSITION**\nSeek position exceeds track duration.\n\n**Track Duration:** ${this.formatDuration(trackDuration)}\n**Your Input:** ${seekPosition} seconds (${this.formatDuration(seekMs)})\n\nPlease enter a position within ${Math.floor(trackDuration / 1000)} seconds.`)
+                            );
+
+                        const reply = await interaction.editReply({ 
+                            components: [invalidContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
+                        setTimeout(() => reply.delete().catch(() => {}), 8000);
+                        return;
+                    }
+                    
+                    // Perform seek
+                    try {
+                        await player.seek(seekMs);
+                        
+                        const seekContainer = new ContainerBuilder()
+                            .setAccentColor(0x9b59b6)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**⏩ TRACK POSITION UPDATED**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addSectionComponents(
+                                section => section
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Seek Position:** ${this.formatDuration(seekMs)}\n**Track Duration:** ${this.formatDuration(trackDuration)}\n**Remaining:** ${this.formatDuration(trackDuration - seekMs)}\n**Progress:** ${Math.round((seekMs / trackDuration) * 100)}%\n\n${this.getProgressBar(seekMs, trackDuration)}`)
+                                    )
+                                    .setThumbnailAccessory(
+                                        thumbnail => thumbnail
+                                            .setURL(currentTrack.info.artwork || interaction.user.displayAvatarURL({ dynamic: true }))
+                                            .setDescription('Now Playing')
+                                    )
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**🎵 Track Info:**\n• Volume: ${player.volume}%\n• Loop: ${player.loop || 'None'}\n• Requested by: ${currentTrack.requester?.username || 'Unknown'}`)
+                            );
+
+                        const reply = await interaction.editReply({ 
+                            components: [seekContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
+                        setTimeout(() => reply.delete().catch(() => {}), 10000);
+                    } catch (seekError) {
+                        console.error('Seek error:', seekError);
+                        
+                        const seekErrorContainer = new ContainerBuilder()
+                            .setAccentColor(0xff4757)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**❌ SEEK ERROR**\nFailed to seek to the specified position.\n\nThis could be due to:\n• Player connection issues\n• Unsupported track format\n• Network latency\n\nPlease try again or use a different position.')
+                            );
+
+                        const reply = await interaction.editReply({ 
+                            components: [seekErrorContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
+                        setTimeout(() => reply.delete().catch(() => {}), 7000);
+                    }
                     break;
                 }
 
@@ -1755,16 +1852,25 @@ module.exports = {
         const filledLength = Math.round((volume / 100) * barLength);
         const emptyLength = barLength - filledLength;
         return '█'.repeat(filledLength) + '░'.repeat(emptyLength) + ` ${volume}%`;
+    },
+
+    getProgressBar(current, total) {
+        const barLength = 20;
+        const progress = Math.min((current / total) * barLength, barLength);
+        const filled = Math.floor(progress);
+        const empty = barLength - filled;
+        const percentage = Math.round((current / total) * 100);
+        return '█'.repeat(filled) + '░'.repeat(empty) + ` ${percentage}%`;
     }
 };
 
 /*
- ██████╗ ██╗      █████╗  ██████╗███████╗██╗   ██╗████████╗
-██╔════╝ ██║     ██╔══██╗██╔════╝██╔════╝╚██╗ ██╔╝╚══██╔══╝
-██║  ███╗██║     ███████║██║     █████╗   ╚████╔╝    ██║   
-██║   ██║██║     ██╔══██║██║     ██╔══╝    ╚██╔╝     ██║   
-╚██████╔╝███████╗██║  ██║╚██████╗███████╗   ██║      ██║   
- ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝╚══════╝   ╚═╝      ╚═╝   
+ ██████▗  ██▗      ██████  ████████▗███████████▗██▗   ██▗█████████
+██▄▄▄▄▄  ██▄     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄██▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+██▌  ███ ██▌     ███████  ████████▌█████████████▌   ██▌█████████▌
+██▌   ██▌██▌     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄█████▄▄▄▄▄▄▄    ██▌█████▄▄▄▄▄ 
+█████████▌███████████████▌█████████▌█████████████▌   ██▌█████████▌
+ ▀▀▀▀▀▀▀ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀▀▀▀▀▀▀▀
 
 -------------------------------------
 📡 Discord : https://discord.gg/xQF9f9yUEM
