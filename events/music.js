@@ -83,7 +83,9 @@ const advancedMessageManager = {
             'stop': 3000,           // 3 seconds for stop messages
             'loop': 3000,           // 3 seconds (loop mode changes)
             'shuffle': 3000,        // 3 seconds (shuffle confirmations)
-            'queue_cleared': 3000   // 3 seconds (queue modifications)
+            'queue_cleared': 3000,   // 3 seconds (queue modifications)
+            'seek': 3000,           // 3 seconds (seek confirmations)
+            'speed': 3000           // 3 seconds (speed changes)
         };
 
         if (context.isImportant) return times[type] * 1.5;
@@ -202,7 +204,9 @@ const advancedMessageManager = {
             queue: 0x9b59b6,
             session_end: 0x95a5a6,
             volume: 0x2196f3,
-            autoplay: 0x17a2b8
+            autoplay: 0x17a2b8,
+            seek: 0x00b894,
+            speed: 0xfdcb6e
         };
 
         return new ContainerBuilder()
@@ -465,6 +469,64 @@ module.exports = (client) => {
                         .setStyle(ButtonStyle.Danger)
                 );
 
+                // SEEK CONTROLS ROW
+                const seekRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_back_10_${track.requester?.id || 'system'}`)
+                        .setEmoji('⏪')
+                        .setLabel('-10s')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_back_5_${track.requester?.id || 'system'}`)
+                        .setEmoji('◀️')
+                        .setLabel('-5s')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_info_${track.requester?.id || 'system'}`)
+                        .setEmoji('⏱️')
+                        .setLabel('Seek')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_forward_5_${track.requester?.id || 'system'}`)
+                        .setEmoji('▶️')
+                        .setLabel('+5s')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_forward_10_${track.requester?.id || 'system'}`)
+                        .setEmoji('⏩')
+                        .setLabel('+10s')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+                // PLAYBACK SPEED CONTROLS ROW
+                const speedRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`v2_speed_0_5_${track.requester?.id || 'system'}`)
+                        .setEmoji('🐢')
+                        .setLabel('0.5x')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_speed_1_0_${track.requester?.id || 'system'}`)
+                        .setEmoji('▶️')
+                        .setLabel('1.0x')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_speed_1_25_${track.requester?.id || 'system'}`)
+                        .setEmoji('⏩')
+                        .setLabel('1.25x')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_speed_1_5_${track.requester?.id || 'system'}`)
+                        .setEmoji('⚡')
+                        .setLabel('1.5x')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_speed_2_0_${track.requester?.id || 'system'}`)
+                        .setEmoji('🚀')
+                        .setLabel('2.0x')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
                 const messageOptions = {
                     components: [containerBuilder],
                     flags: MessageFlags.IsComponentsV2
@@ -474,7 +536,7 @@ module.exports = (client) => {
                     messageOptions.files = [attachment];
                 }
 
-                messageOptions.components.push(controlRow1, controlRow2);
+                messageOptions.components.push(controlRow1, controlRow2, seekRow, speedRow);
 
                 const message = await channel.send(messageOptions);
 
@@ -645,7 +707,7 @@ module.exports = (client) => {
             if (!interaction.isButton()) return;
 
             try {
-                const match = interaction.customId.match(/^v2_(volume_up|volume_down|pause|resume|skip|stop|queue|lyrics|loop|shuffle|clear)_(\w+)$/);
+                const match = interaction.customId.match(/^v2_(volume_up|volume_down|pause|resume|skip|stop|queue|lyrics|loop|shuffle|clear|seek_back_10|seek_back_5|seek_forward_5|seek_forward_10|seek_info|speed_0_5|speed_1_0|speed_1_25|speed_1_5|speed_2_0)_(\w+)$/);
                 if (!match) return;
 
                 const [, action, userId] = match;
@@ -790,8 +852,7 @@ module.exports = (client) => {
 
                         const stopReply = await interaction.editReply({
                             components: [stopContainer],
-                            flags: MessageFlags.IsComponentsV2
-                        });
+                            flags: MessageFlags.IsComponentsV2                        });
 
                         const channel = client.channels.cache.get(player.textChannel);
                         if (channel) {
@@ -857,6 +918,102 @@ module.exports = (client) => {
                         });
 
                         setTimeout(() => loopReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('loop'));
+                        break;
+
+                    // SEEK ACTIONS
+                    case 'seek_back_10':
+                    case 'seek_back_5':
+                    case 'seek_forward_5':
+                    case 'seek_forward_10':
+                        const seekAmount = action === 'seek_back_10' ? -10 : 
+                                         action === 'seek_back_5' ? -5 :
+                                         action === 'seek_forward_5' ? 5 : 10;
+                        
+                        const currentPosition = player.position || 0;
+                        const newPosition = Math.max(0, currentPosition + (seekAmount * 1000));
+                        const trackDuration = player.current?.info?.length || 0;
+                        const finalPosition = Math.min(newPosition, trackDuration);
+                        
+                        await player.seek(finalPosition);
+                        
+                        const seekContainer = advancedMessageManager.createV2Container('seek')
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**⏱️ SEEK ${seekAmount > 0 ? 'FORWARD' : 'BACKWARD'}**\n\n**${seekAmount > 0 ? '+' : ''}${seekAmount}s**\n\n**Position:** ${formatTime(finalPosition)} / ${formatTime(trackDuration)}\n\n*${finalPosition >= trackDuration ? '⚠️ Reached end of track!' : '⏭️ Seeking to new position...'}*`)
+                            );
+
+                        const seekReply = await interaction.editReply({
+                            components: [seekContainer],
+                            flags: MessageFlags.IsComponentsV2
+                        });
+
+                        setTimeout(() => seekReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('seek'));
+                        break;
+
+                    case 'seek_info':
+                        const pos = player.position || 0;
+                        const dur = player.current?.info?.length || 0;
+                        
+                        const seekInfoContainer = advancedMessageManager.createV2Container('info')
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**⏱️ TRACK POSITION**\n\n**Current:** ${formatTime(pos)}\n**Total:** ${formatTime(dur)}\n**Progress:** ${Math.round((pos / dur) * 100)}%\n\n${getProgressBar(pos, dur)}\n\n*Use the seek buttons to skip forward/backward.*`)
+                            );
+
+                        const seekInfoReply = await interaction.editReply({
+                            components: [seekInfoContainer],
+                            flags: MessageFlags.IsComponentsV2
+                        });
+
+                        setTimeout(() => seekInfoReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('info'));
+                        break;
+
+                    // PLAYBACK SPEED ACTIONS
+                    case 'speed_0_5':
+                    case 'speed_1_0':
+                    case 'speed_1_25':
+                    case 'speed_1_5':
+                    case 'speed_2_0':
+                        const speedMap = {
+                            'speed_0_5': 0.5,
+                            'speed_1_0': 1.0,
+                            'speed_1_25': 1.25,
+                            'speed_1_5': 1.5,
+                            'speed_2_0': 2.0
+                        };
+                        
+                        const speed = speedMap[action] || 1.0;
+                        
+                        try {
+                            await player.setSpeed(speed);
+                            
+                            const speedEmoji = speed < 1 ? '🐢' : speed === 1 ? '▶️' : speed <= 1.25 ? '⏩' : speed <= 1.5 ? '⚡' : '🚀';
+                            const speedLabel = speed < 1 ? 'Slower' : speed === 1 ? 'Normal' : 'Faster';
+                            
+                            const speedContainer = advancedMessageManager.createV2Container('speed')
+                                .addTextDisplayComponents(
+                                    textDisplay => textDisplay.setContent(`**${speedEmoji} PLAYBACK SPEED**\n\n**Speed:** ${speed}x\n**Mode:** ${speedLabel}\n\n${getSpeedDescription(speed)}\n\n*Speed preferences saved for this session.*`)
+                                );
+
+                            const speedReply = await interaction.editReply({
+                                components: [speedContainer],
+                                flags: MessageFlags.IsComponentsV2
+                            });
+
+                            setTimeout(() => speedReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('speed'));
+                        } catch (speedError) {
+                            console.error('Speed change error:', speedError);
+                            
+                            const speedErrorContainer = advancedMessageManager.createV2Container('error')
+                                .addTextDisplayComponents(
+                                    textDisplay => textDisplay.setContent(`**❌ SPEED CHANGE FAILED**\n\nCould not change playback speed to ${speed}x.\n\n*Your Lavalink server may not support speed changes.*`)
+                                );
+
+                            const speedErrorReply = await interaction.editReply({
+                                components: [speedErrorContainer],
+                                flags: MessageFlags.IsComponentsV2
+                            });
+
+                            setTimeout(() => speedErrorReply.delete().catch(() => { }), advancedMessageManager.getAutoDeleteTime('error'));
+                        }
                         break;
 
                     case 'queue':
@@ -1673,6 +1830,25 @@ module.exports = (client) => {
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
             return `${hours > 0 ? hours + ":" : ""}${minutes.toString().padStart(hours > 0 ? 2 : 1, "0")}:${seconds.toString().padStart(2, "0")}`;
+        }
+
+        function getProgressBar(current, total) {
+            if (!total || total === 0) return '░░░░░░░░░░ 0%';
+            const percentage = Math.min((current / total) * 100, 100);
+            const filled = Math.round((percentage / 100) * 20);
+            const empty = 20 - filled;
+            return '█'.repeat(filled) + '░'.repeat(empty) + ` ${Math.round(percentage)}%`;
+        }
+
+        function getSpeedDescription(speed) {
+            const descriptions = {
+                0.5: '*🐢 Slower than normal - good for learning lyrics or dance moves.*',
+                1.0: '*▶️ Normal playback speed - the way the artist intended.*',
+                1.25: '*⏩ Slightly faster - great for catching up or upbeat vibes.*',
+                1.5: '*⚡ Moderately fast - for when you need to get through the playlist quickly.*',
+                2.0: '*🚀 Double speed - maximum efficiency mode!*'
+            };
+            return descriptions[speed] || `*${speed}x playback speed.*`;
         }
 
         async function getLyrics(trackName, artistName, duration) {
