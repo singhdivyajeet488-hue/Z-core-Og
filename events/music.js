@@ -336,8 +336,6 @@ module.exports = (client) => {
                 let attachment = null;
 
                 try {
-    
-
                     cardBuffer = await dynamicCard({
                         thumbnailURL: track.info.thumbnail || track.info.artworkUrl || 'https://via.placeholder.com/300x300/DC92FF/FFFFFF?text=Music',
                         songTitle: track.info.title || 'Unknown Title',
@@ -413,12 +411,8 @@ module.exports = (client) => {
                         );
                 }
 
+                // ROW 1: Pause, Resume, Skip
                 const controlRow1 = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`v2_volume_down_${track.requester?.id || 'system'}`)
-                        .setEmoji('🔉')
-                        .setLabel('Vol -')
-                        .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
                         .setCustomId(`v2_pause_${track.requester?.id || 'system'}`)
                         .setEmoji('⏸️')
@@ -433,34 +427,20 @@ module.exports = (client) => {
                         .setCustomId(`v2_skip_${track.requester?.id || 'system'}`)
                         .setEmoji('⏭️')
                         .setLabel('Skip')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_volume_up_${track.requester?.id || 'system'}`)
-                        .setEmoji('🔊')
-                        .setLabel('Vol +')
                         .setStyle(ButtonStyle.Secondary)
                 );
 
+                // ROW 2: Shuffle, Loop, Stop
                 const controlRow2 = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
-                        .setCustomId(`v2_queue_${track.requester?.id || 'system'}`)
-                        .setEmoji('📜')
-                        .setLabel('Queue')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_lyrics_${track.requester?.id || 'system'}`)
-                        .setEmoji('🎤')
-                        .setLabel('Lyrics')
+                        .setCustomId(`v2_shuffle_${track.requester?.id || 'system'}`)
+                        .setEmoji('🔀')
+                        .setLabel('Shuffle')
                         .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
                         .setCustomId(`v2_loop_${track.requester?.id || 'system'}`)
                         .setEmoji('🔁')
                         .setLabel('Loop')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_shuffle_${track.requester?.id || 'system'}`)
-                        .setEmoji('🔀')
-                        .setLabel('Shuffle')
                         .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
                         .setCustomId(`v2_stop_${track.requester?.id || 'system'}`)
@@ -469,36 +449,26 @@ module.exports = (client) => {
                         .setStyle(ButtonStyle.Danger)
                 );
 
-                // SEEK CONTROLS ROW
-                const seekRow = new ActionRowBuilder().addComponents(
+                // ROW 3: Queue, Vol -, Vol +
+                const controlRow3 = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
-                        .setCustomId(`v2_seek_back_10_${track.requester?.id || 'system'}`)
-                        .setEmoji('⏪')
-                        .setLabel('-10s')
+                        .setCustomId(`v2_queue_${track.requester?.id || 'system'}`)
+                        .setEmoji('📜')
+                        .setLabel('Queue')
                         .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
-                        .setCustomId(`v2_seek_back_5_${track.requester?.id || 'system'}`)
-                        .setEmoji('◀️')
-                        .setLabel('-5s')
+                        .setCustomId(`v2_volume_down_${track.requester?.id || 'system'}`)
+                        .setEmoji('🔉')
+                        .setLabel('Vol -')
                         .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
-                        .setCustomId(`v2_seek_info_${track.requester?.id || 'system'}`)
-                        .setEmoji('⏱️')
-                        .setLabel('Seek')
-                        .setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_seek_forward_5_${track.requester?.id || 'system'}`)
-                        .setEmoji('▶️')
-                        .setLabel('+5s')
-                        .setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder()
-                        .setCustomId(`v2_seek_forward_10_${track.requester?.id || 'system'}`)
-                        .setEmoji('⏩')
-                        .setLabel('+10s')
+                        .setCustomId(`v2_volume_up_${track.requester?.id || 'system'}`)
+                        .setEmoji('🔊')
+                        .setLabel('Vol +')
                         .setStyle(ButtonStyle.Secondary)
                 );
 
-                // PLAYBACK SPEED CONTROLS ROW
+                // ROW 4: Playback Speed Controls
                 const speedRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
                         .setCustomId(`v2_speed_0_5_${track.requester?.id || 'system'}`)
@@ -527,6 +497,35 @@ module.exports = (client) => {
                         .setStyle(ButtonStyle.Secondary)
                 );
 
+                // ROW 5: Seek Controls
+                const seekRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_back_10_${track.requester?.id || 'system'}`)
+                        .setEmoji('⏪')
+                        .setLabel('-10s')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_back_5_${track.requester?.id || 'system'}`)
+                        .setEmoji('◀️')
+                        .setLabel('-5s')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_info_${track.requester?.id || 'system'}`)
+                        .setEmoji('⏱️')
+                        .setLabel('Seek')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_forward_5_${track.requester?.id || 'system'}`)
+                        .setEmoji('▶️')
+                        .setLabel('+5s')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`v2_seek_forward_10_${track.requester?.id || 'system'}`)
+                        .setEmoji('⏩')
+                        .setLabel('+10s')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
                 const messageOptions = {
                     components: [containerBuilder],
                     flags: MessageFlags.IsComponentsV2
@@ -536,7 +535,7 @@ module.exports = (client) => {
                     messageOptions.files = [attachment];
                 }
 
-                messageOptions.components.push(controlRow1, controlRow2, seekRow, speedRow);
+                messageOptions.components.push(controlRow1, controlRow2, controlRow3, speedRow, seekRow);
 
                 const message = await channel.send(messageOptions);
 
@@ -707,7 +706,7 @@ module.exports = (client) => {
             if (!interaction.isButton()) return;
 
             try {
-                const match = interaction.customId.match(/^v2_(volume_up|volume_down|pause|resume|skip|stop|queue|lyrics|loop|shuffle|clear|seek_back_10|seek_back_5|seek_forward_5|seek_forward_10|seek_info|speed_0_5|speed_1_0|speed_1_25|speed_1_5|speed_2_0)_(\w+)$/);
+                const match = interaction.customId.match(/^v2_(volume_up|volume_down|pause|resume|skip|stop|queue|loop|shuffle|clear|seek_back_10|seek_back_5|seek_forward_5|seek_forward_10|seek_info|speed_0_5|speed_1_0|speed_1_25|speed_1_5|speed_2_0)_(\w+)$/);
                 if (!match) return;
 
                 const [, action, userId] = match;
@@ -1034,10 +1033,6 @@ module.exports = (client) => {
                         }
                         break;
 
-                    case 'lyrics':
-                        await showV2Lyrics(client, player, interaction);
-                        break;
-
                     default:
                         const unknownContainer = advancedMessageManager.createV2Container('error')
                             .addTextDisplayComponents(
@@ -1189,7 +1184,6 @@ module.exports = (client) => {
             }
         }
 
-   
         async function showV2Lyrics(client, player, interaction) {
             try {
                 const channel = client.channels.cache.get(player.textChannel);
