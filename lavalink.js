@@ -1,9 +1,9 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "TriniumHost-V3",
-      password: "kirito",
-      host: "lavalink.triniumhost.com",
+      name: "lavalink.devamop.in",
+      password: "DevamOP",
+      host: "lavalink.devamop.in",
       port: 443,
       secure: true
     }
