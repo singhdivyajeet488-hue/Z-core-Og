@@ -1,9 +1,9 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "Horizxon-Asia",
-      password: "horizxon.studio",
-      host: "lava1.horizxon.studio",
+      name: "AjieBlogs-V4",
+      password: "https://dsc.gg/ajidevserver",
+      host: "lava-v4.ajieblogs.eu.org",
       port: 80,
       secure: false
     }
