@@ -187,6 +187,110 @@ module.exports = {
                         .setDescription('Volume level (0-100).')
                         .setRequired(true))),
 
+    // Helper function to create the now playing embed with buttons
+    createNowPlayingEmbed(player, interaction) {
+        if (!player || !player.current) return null;
+        
+        const guildId = interaction.guild.id;
+        const currentTrack = player.current;
+        const isPaused = player.paused;
+        
+        const row1 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`seek_back_10_${guildId}`)
+                    .setLabel('⏪ -10s')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`seek_back_5_${guildId}`)
+                    .setLabel('◀️ -5s')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`seek_forward_5_${guildId}`)
+                    .setLabel('▶️ +5s')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`seek_forward_10_${guildId}`)
+                    .setLabel('⏩ +10s')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        const row2 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`seek_25_${guildId}`)
+                    .setLabel('25%')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`seek_50_${guildId}`)
+                    .setLabel('50%')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`seek_75_${guildId}`)
+                    .setLabel('75%')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`seek_100_${guildId}`)
+                    .setLabel('100%')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        const row3 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`pause_${guildId}`)
+                    .setLabel(isPaused ? '▶️ Resume' : '⏸️ Pause')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`skip_${guildId}`)
+                    .setLabel('⏭️ Skip')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId(`stop_${guildId}`)
+                    .setLabel('⏹️ Stop')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId(`loop_${guildId}`)
+                    .setLabel(`🔄 ${player.loop || 'None'}`)
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`shuffle_${guildId}`)
+                    .setLabel('🔀 Shuffle')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        return new ContainerBuilder()
+            .setAccentColor(0xdc92ff)
+            .addTextDisplayComponents(
+                textDisplay => textDisplay.setContent('**🎵 NOW PLAYING**')
+            )
+            .addSeparatorComponents(separator => separator)
+            .addSectionComponents(
+                section => section
+                    .addTextDisplayComponents(
+                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n${currentTrack.info.uri ? `**🔗 [Listen on Platform](${currentTrack.info.uri})**` : ''}\n\n**Track Details:**\n• Duration: ${this.formatDuration(currentTrack.info.length)}\n• Position: ${this.formatDuration(player.position)} / ${this.formatDuration(currentTrack.info.length)}\n• Volume: ${player.volume}%\n• Loop: ${player.loop || 'None'}\n\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}`)
+                    )
+                    .setThumbnailAccessory(
+                        thumbnail => thumbnail
+                            .setURL(currentTrack.info.artwork || currentTrack.requester?.avatarURL || 'https://via.placeholder.com/300x300')
+                            .setDescription('Now Playing')
+                    )
+            )
+            .addSeparatorComponents(separator => separator)
+            .addTextDisplayComponents(
+                textDisplay => textDisplay.setContent(`**⏱️ Progress:**\n${this.getProgressBar(player.position, currentTrack.info.length)}`)
+            )
+            .addActionRowComponents(
+                row => row.addComponents(row1.components)
+            )
+            .addActionRowComponents(
+                row => row.addComponents(row2.components)
+            )
+            .addActionRowComponents(
+                row => row.addComponents(row3.components)
+            );
+    },
+
     async execute(interaction) {
         try {
             await interaction.deferReply();
@@ -313,6 +417,133 @@ module.exports = {
                 return player;
             };
 
+            // Create button collector for now playing messages
+            const createButtonCollector = async (reply, player) => {
+                const collector = reply.createMessageComponentCollector({ 
+                    time: 120000 // 2 minutes
+                });
+
+                collector.on('collect', async (i) => {
+                    if (i.user.id !== interaction.user.id) {
+                        await i.reply({ 
+                            content: '❌ You cannot control this player!', 
+                            ephemeral: true 
+                        });
+                        return;
+                    }
+
+                    const player = client.riffy.players.get(guildId);
+                    
+                    if (!player || !player.current) {
+                        await i.reply({ 
+                            content: '❌ No track is currently playing!', 
+                            ephemeral: true 
+                        });
+                        return;
+                    }
+
+                    const currentPosition = player.position;
+                    const trackDuration = player.current.info.length;
+
+                    try {
+                        let newPosition = currentPosition;
+
+                        // Handle seek buttons
+                        if (i.customId.startsWith('seek_back_10')) {
+                            newPosition = Math.max(0, currentPosition - 10000);
+                            await player.seek(newPosition);
+                            await i.reply({ content: `⏪ Rewound 10 seconds!`, ephemeral: true });
+                        } 
+                        else if (i.customId.startsWith('seek_back_5')) {
+                            newPosition = Math.max(0, currentPosition - 5000);
+                            await player.seek(newPosition);
+                            await i.reply({ content: `◀️ Rewound 5 seconds!`, ephemeral: true });
+                        }
+                        else if (i.customId.startsWith('seek_forward_5')) {
+                            newPosition = Math.min(trackDuration, currentPosition + 5000);
+                            await player.seek(newPosition);
+                            await i.reply({ content: `▶️ Forward 5 seconds!`, ephemeral: true });
+                        }
+                        else if (i.customId.startsWith('seek_forward_10')) {
+                            newPosition = Math.min(trackDuration, currentPosition + 10000);
+                            await player.seek(newPosition);
+                            await i.reply({ content: `⏩ Forward 10 seconds!`, ephemeral: true });
+                        }
+                        else if (i.customId.startsWith('seek_25')) {
+                            newPosition = Math.floor(trackDuration * 0.25);
+                            await player.seek(newPosition);
+                            await i.reply({ content: `⏩ Jumped to 25%!`, ephemeral: true });
+                        }
+                        else if (i.customId.startsWith('seek_50')) {
+                            newPosition = Math.floor(trackDuration * 0.5);
+                            await player.seek(newPosition);
+                            await i.reply({ content: `⏩ Jumped to 50%!`, ephemeral: true });
+                        }
+                        else if (i.customId.startsWith('seek_75')) {
+                            newPosition = Math.floor(trackDuration * 0.75);
+                            await player.seek(newPosition);
+                            await i.reply({ content: `⏩ Jumped to 75%!`, ephemeral: true });
+                        }
+                        else if (i.customId.startsWith('seek_100')) {
+                            await player.stop();
+                            await i.reply({ content: `⏩ Jumped to end!`, ephemeral: true });
+                        }
+                        // Handle existing controls
+                        else if (i.customId.startsWith('pause_')) {
+                            if (player.paused) {
+                                player.pause(false);
+                                await i.reply({ content: '▶️ Resumed playback!', ephemeral: true });
+                            } else {
+                                player.pause(true);
+                                await i.reply({ content: '⏸️ Paused playback!', ephemeral: true });
+                            }
+                        }
+                        else if (i.customId.startsWith('skip_')) {
+                            player.stop();
+                            await i.reply({ content: '⏭️ Skipped track!', ephemeral: true });
+                        }
+                        else if (i.customId.startsWith('stop_')) {
+                            player.destroy();
+                            await i.reply({ content: '⏹️ Stopped playback!', ephemeral: true });
+                            collector.stop();
+                        }
+                        else if (i.customId.startsWith('loop_')) {
+                            const loopModes = ['none', 'track', 'queue'];
+                            const currentIndex = loopModes.indexOf(player.loop || 'none');
+                            const nextMode = loopModes[(currentIndex + 1) % loopModes.length];
+                            player.setLoop(nextMode);
+                            await i.reply({ content: `🔄 Loop mode set to: **${nextMode}**`, ephemeral: true });
+                        }
+                        else if (i.customId.startsWith('shuffle_')) {
+                            if (player.queue.length > 0) {
+                                player.queue.shuffle();
+                                await i.reply({ content: '🔀 Queue shuffled!', ephemeral: true });
+                            } else {
+                                await i.reply({ content: '❌ Queue is empty!', ephemeral: true });
+                            }
+                        }
+
+                        // Update the now playing message with new position
+                        if (player.current && !i.customId.startsWith('stop_')) {
+                            const updatedEmbed = this.createNowPlayingEmbed(player, interaction);
+                            if (updatedEmbed) {
+                                await i.editReply({ 
+                                    components: [updatedEmbed]
+                                });
+                            }
+                        }
+
+                    } catch (error) {
+                        console.error('Button interaction error:', error);
+                        await i.reply({ 
+                            content: '❌ An error occurred while processing your request.', 
+                            ephemeral: true 
+                        });
+                    }
+                });
+
+                return collector;
+            };
   
             switch (subcommand) {
                 case 'play': {
@@ -382,35 +613,25 @@ module.exports = {
                                     }
                                 }
                         
-                                const spotifyContainer = new ContainerBuilder()
-                                    .setAccentColor(0x1db954)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent('**🎵 SPOTIFY INTEGRATION**')
-                                    )
-                                    .addSeparatorComponents(separator => separator)
-                                    .addSectionComponents(
-                                        section => section
-                                            .addTextDisplayComponents(
-                                                textDisplay => textDisplay.setContent(`**${spotifyData.type === 'track' ? '🎵 Track' : '📋 Playlist'} Added Successfully**\n\nAdded **${added}** track${added !== 1 ? 's' : ''} from Spotify to the queue.\n\n**Source:** ${spotifyData.name || 'Spotify Content'}`)
-                                            )
-                                            .setThumbnailAccessory(
-                                                thumbnail => thumbnail
-                                                    .setURL(user.displayAvatarURL({ dynamic: true }))
-                                                    .setDescription('Requested by')
-                                            )
-                                    )
-                                    .addSeparatorComponents(separator => separator)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**🎧 Queue Status:**\n• Tracks in Queue: **${player.queue.length}**\n• Now Playing: ${player.current ? '✅ Active' : '⏳ Starting...'}\n• Estimated Time: ~${Math.round(added * 3.5)} minutes`)
-                                    );
-                        
-                                const reply = await interaction.editReply({ 
-                                    components: [spotifyContainer], 
-                                    flags: MessageFlags.IsComponentsV2 
-                                });
-                                setTimeout(() => reply.delete().catch(() => {}), 8000);
-                        
-                                if (!player.playing && !player.paused) player.play();
+                                if (!player.playing && !player.paused) {
+                                    player.play();
+                                }
+                                
+                                // Send now playing with buttons after a short delay
+                                setTimeout(async () => {
+                                    const updatedPlayer = client.riffy.players.get(guildId);
+                                    if (updatedPlayer && updatedPlayer.current) {
+                                        const nowPlayingEmbed = this.createNowPlayingEmbed(updatedPlayer, interaction);
+                                        if (nowPlayingEmbed) {
+                                            const reply = await interaction.editReply({ 
+                                                components: [nowPlayingEmbed], 
+                                                flags: MessageFlags.IsComponentsV2 
+                                            });
+                                            await createButtonCollector(reply, updatedPlayer);
+                                        }
+                                    }
+                                }, 1000);
+                                
                             } catch (spotifyError) {
                                 console.error('Spotify error:', spotifyError);
                                 
@@ -482,29 +703,25 @@ module.exports = {
                                     player.queue.add(track);
                                 }
                     
-                                const playlistContainer = new ContainerBuilder()
-                                    .setAccentColor(0xdc92ff)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent('**📋 YOUTUBE PLAYLIST ADDED**')
-                                    )
-                                    .addSeparatorComponents(separator => separator)
-                                    .addSectionComponents(
-                                        section => section
-                                            .addTextDisplayComponents(
-                                                textDisplay => textDisplay.setContent(`**Playlist successfully queued!**\n\nAdded **${resolve.tracks.length}** tracks from YouTube playlist.\n\n**Queue Status:**\n• Total Tracks: ${player.queue.length}\n• Estimated Duration: ~${Math.round(resolve.tracks.length * 3.5)} minutes`)
-                                            )
-                                            .setThumbnailAccessory(
-                                                thumbnail => thumbnail
-                                                    .setURL(user.displayAvatarURL({ dynamic: true }))
-                                                    .setDescription('Requested by')
-                                            )
-                                    );
-                    
-                                const reply = await interaction.editReply({ 
-                                    components: [playlistContainer], 
-                                    flags: MessageFlags.IsComponentsV2 
-                                });
-                                setTimeout(() => reply.delete().catch(() => {}), 6000);
+                                if (!player.playing && !player.paused) {
+                                    player.play();
+                                }
+                                
+                                // Send now playing with buttons after a short delay
+                                setTimeout(async () => {
+                                    const updatedPlayer = client.riffy.players.get(guildId);
+                                    if (updatedPlayer && updatedPlayer.current) {
+                                        const nowPlayingEmbed = this.createNowPlayingEmbed(updatedPlayer, interaction);
+                                        if (nowPlayingEmbed) {
+                                            const reply = await interaction.editReply({ 
+                                                components: [nowPlayingEmbed], 
+                                                flags: MessageFlags.IsComponentsV2 
+                                            });
+                                            await createButtonCollector(reply, updatedPlayer);
+                                        }
+                                    }
+                                }, 1000);
+                                
                             } else {
                                 const track = resolve.tracks[0];
                                 track.requester = {
@@ -514,32 +731,27 @@ module.exports = {
                                 };
                                 player.queue.add(track);
                     
-                                const trackContainer = new ContainerBuilder()
-                                    .setAccentColor(0xdc92ff)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent('**🎵 TRACK ADDED TO QUEUE**')
-                                    )
-                                    .addSeparatorComponents(separator => separator)
-                                    .addSectionComponents(
-                                        section => section
-                                            .addTextDisplayComponents(
-                                                textDisplay => textDisplay.setContent(`**${track.info.title}**\n\nSuccessfully added to queue!\n\n**Details:**\n• Duration: ${this.formatDuration(track.info.length)}\n• Position: #${player.queue.length}\n• Source: YouTube`)
-                                            )
-                                            .setThumbnailAccessory(
-                                                thumbnail => thumbnail
-                                                    .setURL(user.displayAvatarURL({ dynamic: true }))
-                                                    .setDescription('Requested by')
-                                            )
-                                    );
-                    
-                                const reply = await interaction.editReply({ 
-                                    components: [trackContainer], 
-                                    flags: MessageFlags.IsComponentsV2 
-                                });
-                                setTimeout(() => reply.delete().catch(() => {}), 6000);
+                                if (!player.playing && !player.paused) {
+                                    player.play();
+                                }
+                                
+                                // Send now playing with buttons after a short delay
+                                setTimeout(async () => {
+                                    const updatedPlayer = client.riffy.players.get(guildId);
+                                    if (updatedPlayer && updatedPlayer.current) {
+                                        const nowPlayingEmbed = this.createNowPlayingEmbed(updatedPlayer, interaction);
+                                        if (nowPlayingEmbed) {
+                                            const reply = await interaction.editReply({ 
+                                                components: [nowPlayingEmbed], 
+                                                flags: MessageFlags.IsComponentsV2 
+                                            });
+                                            await createButtonCollector(reply, updatedPlayer);
+                                        }
+                                    }
+                                }, 1000);
                             }
                     
-                            if (!player.playing && !player.paused) player.play();
+                            
                         }
                   
                         else {
@@ -568,31 +780,24 @@ module.exports = {
                             };
                             player.queue.add(track);
                 
-                            const searchContainer = new ContainerBuilder()
-                                .setAccentColor(0xdc92ff)
-                                .addTextDisplayComponents(
-                                    textDisplay => textDisplay.setContent('**🎵 SEARCH RESULT ADDED**')
-                                )
-                                .addSeparatorComponents(separator => separator)
-                                .addSectionComponents(
-                                    section => section
-                                        .addTextDisplayComponents(
-                                            textDisplay => textDisplay.setContent(`**${track.info.title}**\n\nTrack found and added to queue!\n\n**Queue Info:**\n• Position: #${player.queue.length}\n• Duration: ${this.formatDuration(track.info.length)}\n• Quality: High Definition`)
-                                        )
-                                        .setThumbnailAccessory(
-                                            thumbnail => thumbnail
-                                                .setURL(user.displayAvatarURL({ dynamic: true }))
-                                                .setDescription('Requested by')
-                                        )
-                                );
-                
-                            const reply = await interaction.editReply({ 
-                                components: [searchContainer], 
-                                flags: MessageFlags.IsComponentsV2 
-                            });
-                            setTimeout(() => reply.delete().catch(() => {}), 6000);
-                
-                            if (!player.playing && !player.paused) player.play();
+                            if (!player.playing && !player.paused) {
+                                player.play();
+                            }
+                            
+                            // Send now playing with buttons after a short delay
+                            setTimeout(async () => {
+                                const updatedPlayer = client.riffy.players.get(guildId);
+                                if (updatedPlayer && updatedPlayer.current) {
+                                    const nowPlayingEmbed = this.createNowPlayingEmbed(updatedPlayer, interaction);
+                                    if (nowPlayingEmbed) {
+                                        const reply = await interaction.editReply({ 
+                                            components: [nowPlayingEmbed], 
+                                            flags: MessageFlags.IsComponentsV2 
+                                        });
+                                        await createButtonCollector(reply, updatedPlayer);
+                                    }
+                                }
+                            }, 1000);
                         }
                     } catch (error) {
                         console.error('Error resolving query:', error);
@@ -641,328 +846,28 @@ module.exports = {
                         return;
                     }
                     
-                    // Create the now playing embed with seek buttons
-                    const row1 = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`seek_back_10_${guildId}`)
-                                .setLabel('⏪ -10s')
-                                .setStyle(ButtonStyle.Primary),
-                            new ButtonBuilder()
-                                .setCustomId(`seek_back_5_${guildId}`)
-                                .setLabel('◀️ -5s')
-                                .setStyle(ButtonStyle.Primary),
-                            new ButtonBuilder()
-                                .setCustomId(`seek_forward_5_${guildId}`)
-                                .setLabel('▶️ +5s')
-                                .setStyle(ButtonStyle.Primary),
-                            new ButtonBuilder()
-                                .setCustomId(`seek_forward_10_${guildId}`)
-                                .setLabel('⏩ +10s')
-                                .setStyle(ButtonStyle.Primary)
-                        );
-
-                    const row2 = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`seek_25_${guildId}`)
-                                .setLabel('25%')
-                                .setStyle(ButtonStyle.Secondary),
-                            new ButtonBuilder()
-                                .setCustomId(`seek_50_${guildId}`)
-                                .setLabel('50%')
-                                .setStyle(ButtonStyle.Secondary),
-                            new ButtonBuilder()
-                                .setCustomId(`seek_75_${guildId}`)
-                                .setLabel('75%')
-                                .setStyle(ButtonStyle.Secondary),
-                            new ButtonBuilder()
-                                .setCustomId(`seek_100_${guildId}`)
-                                .setLabel('100%')
-                                .setStyle(ButtonStyle.Secondary)
-                        );
-
-                    const row3 = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`pause_${guildId}`)
-                                .setLabel(player.paused ? '▶️ Resume' : '⏸️ Pause')
-                                .setStyle(ButtonStyle.Success),
-                            new ButtonBuilder()
-                                .setCustomId(`skip_${guildId}`)
-                                .setLabel('⏭️ Skip')
-                                .setStyle(ButtonStyle.Danger),
-                            new ButtonBuilder()
-                                .setCustomId(`stop_${guildId}`)
-                                .setLabel('⏹️ Stop')
-                                .setStyle(ButtonStyle.Danger),
-                            new ButtonBuilder()
-                                .setCustomId(`loop_${guildId}`)
-                                .setLabel(`🔄 ${player.loop || 'None'}`)
-                                .setStyle(ButtonStyle.Secondary),
-                            new ButtonBuilder()
-                                .setCustomId(`shuffle_${guildId}`)
-                                .setLabel('🔀 Shuffle')
-                                .setStyle(ButtonStyle.Secondary)
-                        );
-
-                    const nowPlayingContainer = new ContainerBuilder()
-                        .setAccentColor(0xdc92ff)
-                        .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent('**🎵 NOW PLAYING**')
-                        )
-                        .addSeparatorComponents(separator => separator)
-                        .addSectionComponents(
-                            section => section
-                                .addTextDisplayComponents(
-                                    textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n${currentTrack.info.uri ? `**🔗 [Listen on Platform](${currentTrack.info.uri})**` : ''}\n\n**Track Details:**\n• Duration: ${this.formatDuration(currentTrack.info.length)}\n• Position: ${this.formatDuration(player.position)} / ${this.formatDuration(currentTrack.info.length)}\n• Volume: ${player.volume}%\n• Loop: ${player.loop || 'None'}\n\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}`)
-                                )
-                                .setThumbnailAccessory(
-                                    thumbnail => thumbnail
-                                        .setURL(currentTrack.info.artwork || currentTrack.requester?.avatarURL || 'https://via.placeholder.com/300x300')
-                                        .setDescription('Now Playing')
-                                )
-                        )
-                        .addSeparatorComponents(separator => separator)
-                        .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent(`**⏱️ Progress:**\n${this.getProgressBar(player.position, currentTrack.info.length)}`)
-                        )
-                        .addActionRowComponents(
-                            row => row.addComponents(row1.components)
-                        )
-                        .addActionRowComponents(
-                            row => row.addComponents(row2.components)
-                        )
-                        .addActionRowComponents(
-                            row => row.addComponents(row3.components)
-                        );
-
+                    const nowPlayingEmbed = this.createNowPlayingEmbed(player, interaction);
+                    if (!nowPlayingEmbed) {
+                        const errorContainer = new ContainerBuilder()
+                            .setAccentColor(0xff4757)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**❌ ERROR**\nFailed to create now playing display.')
+                            );
+                        await interaction.editReply({ 
+                            components: [errorContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
+                        return;
+                    }
+                    
                     const reply = await interaction.editReply({ 
-                        components: [nowPlayingContainer], 
+                        components: [nowPlayingEmbed], 
                         flags: MessageFlags.IsComponentsV2 
                     });
-
-                    // Create button collector
-                    const collector = reply.createMessageComponentCollector({ 
-                        time: 120000 // 2 minutes
-                    });
-
-                    collector.on('collect', async (i) => {
-                        if (i.user.id !== interaction.user.id) {
-                            await i.reply({ 
-                                content: '❌ You cannot control this player!', 
-                                ephemeral: true 
-                            });
-                            return;
-                        }
-
-                        const player = client.riffy.players.get(guildId);
-                        
-                        if (!player || !player.current) {
-                            await i.reply({ 
-                                content: '❌ No track is currently playing!', 
-                                ephemeral: true 
-                            });
-                            return;
-                        }
-
-                        const currentPosition = player.position;
-                        const trackDuration = player.current.info.length;
-
-                        try {
-                            let newPosition = currentPosition;
-
-                            // Handle seek buttons
-                            if (i.customId.startsWith('seek_back_10')) {
-                                newPosition = Math.max(0, currentPosition - 10000);
-                                await player.seek(newPosition);
-                                await i.reply({ content: `⏪ Rewound 10 seconds!`, ephemeral: true });
-                            } 
-                            else if (i.customId.startsWith('seek_back_5')) {
-                                newPosition = Math.max(0, currentPosition - 5000);
-                                await player.seek(newPosition);
-                                await i.reply({ content: `◀️ Rewound 5 seconds!`, ephemeral: true });
-                            }
-                            else if (i.customId.startsWith('seek_forward_5')) {
-                                newPosition = Math.min(trackDuration, currentPosition + 5000);
-                                await player.seek(newPosition);
-                                await i.reply({ content: `▶️ Forward 5 seconds!`, ephemeral: true });
-                            }
-                            else if (i.customId.startsWith('seek_forward_10')) {
-                                newPosition = Math.min(trackDuration, currentPosition + 10000);
-                                await player.seek(newPosition);
-                                await i.reply({ content: `⏩ Forward 10 seconds!`, ephemeral: true });
-                            }
-                            else if (i.customId.startsWith('seek_25')) {
-                                newPosition = Math.floor(trackDuration * 0.25);
-                                await player.seek(newPosition);
-                                await i.reply({ content: `⏩ Jumped to 25%!`, ephemeral: true });
-                            }
-                            else if (i.customId.startsWith('seek_50')) {
-                                newPosition = Math.floor(trackDuration * 0.5);
-                                await player.seek(newPosition);
-                                await i.reply({ content: `⏩ Jumped to 50%!`, ephemeral: true });
-                            }
-                            else if (i.customId.startsWith('seek_75')) {
-                                newPosition = Math.floor(trackDuration * 0.75);
-                                await player.seek(newPosition);
-                                await i.reply({ content: `⏩ Jumped to 75%!`, ephemeral: true });
-                            }
-                            else if (i.customId.startsWith('seek_100')) {
-                                await player.stop();
-                                await i.reply({ content: `⏩ Jumped to end!`, ephemeral: true });
-                            }
-                            // Handle existing controls
-                            else if (i.customId.startsWith('pause_')) {
-                                if (player.paused) {
-                                    player.pause(false);
-                                    await i.reply({ content: '▶️ Resumed playback!', ephemeral: true });
-                                } else {
-                                    player.pause(true);
-                                    await i.reply({ content: '⏸️ Paused playback!', ephemeral: true });
-                                }
-                            }
-                            else if (i.customId.startsWith('skip_')) {
-                                player.stop();
-                                await i.reply({ content: '⏭️ Skipped track!', ephemeral: true });
-                            }
-                            else if (i.customId.startsWith('stop_')) {
-                                player.destroy();
-                                await i.reply({ content: '⏹️ Stopped playback!', ephemeral: true });
-                                collector.stop();
-                            }
-                            else if (i.customId.startsWith('loop_')) {
-                                const loopModes = ['none', 'track', 'queue'];
-                                const currentIndex = loopModes.indexOf(player.loop || 'none');
-                                const nextMode = loopModes[(currentIndex + 1) % loopModes.length];
-                                player.setLoop(nextMode);
-                                await i.reply({ content: `🔄 Loop mode set to: **${nextMode}**`, ephemeral: true });
-                            }
-                            else if (i.customId.startsWith('shuffle_')) {
-                                if (player.queue.length > 0) {
-                                    player.queue.shuffle();
-                                    await i.reply({ content: '🔀 Queue shuffled!', ephemeral: true });
-                                } else {
-                                    await i.reply({ content: '❌ Queue is empty!', ephemeral: true });
-                                }
-                            }
-
-                            // Update the now playing message with new position
-                            if (player.current && !i.customId.startsWith('stop_')) {
-                                const updatedRow1 = new ActionRowBuilder()
-                                    .addComponents(
-                                        new ButtonBuilder()
-                                            .setCustomId(`seek_back_10_${guildId}`)
-                                            .setLabel('⏪ -10s')
-                                            .setStyle(ButtonStyle.Primary),
-                                        new ButtonBuilder()
-                                            .setCustomId(`seek_back_5_${guildId}`)
-                                            .setLabel('◀️ -5s')
-                                            .setStyle(ButtonStyle.Primary),
-                                        new ButtonBuilder()
-                                            .setCustomId(`seek_forward_5_${guildId}`)
-                                            .setLabel('▶️ +5s')
-                                            .setStyle(ButtonStyle.Primary),
-                                        new ButtonBuilder()
-                                            .setCustomId(`seek_forward_10_${guildId}`)
-                                            .setLabel('⏩ +10s')
-                                            .setStyle(ButtonStyle.Primary)
-                                    );
-
-                                const updatedRow2 = new ActionRowBuilder()
-                                    .addComponents(
-                                        new ButtonBuilder()
-                                            .setCustomId(`seek_25_${guildId}`)
-                                            .setLabel('25%')
-                                            .setStyle(ButtonStyle.Secondary),
-                                        new ButtonBuilder()
-                                            .setCustomId(`seek_50_${guildId}`)
-                                            .setLabel('50%')
-                                            .setStyle(ButtonStyle.Secondary),
-                                        new ButtonBuilder()
-                                            .setCustomId(`seek_75_${guildId}`)
-                                            .setLabel('75%')
-                                            .setStyle(ButtonStyle.Secondary),
-                                        new ButtonBuilder()
-                                            .setCustomId(`seek_100_${guildId}`)
-                                            .setLabel('100%')
-                                            .setStyle(ButtonStyle.Secondary)
-                                    );
-
-                                const updatedRow3 = new ActionRowBuilder()
-                                    .addComponents(
-                                        new ButtonBuilder()
-                                            .setCustomId(`pause_${guildId}`)
-                                            .setLabel(player.paused ? '▶️ Resume' : '⏸️ Pause')
-                                            .setStyle(ButtonStyle.Success),
-                                        new ButtonBuilder()
-                                            .setCustomId(`skip_${guildId}`)
-                                            .setLabel('⏭️ Skip')
-                                            .setStyle(ButtonStyle.Danger),
-                                        new ButtonBuilder()
-                                            .setCustomId(`stop_${guildId}`)
-                                            .setLabel('⏹️ Stop')
-                                            .setStyle(ButtonStyle.Danger),
-                                        new ButtonBuilder()
-                                            .setCustomId(`loop_${guildId}`)
-                                            .setLabel(`🔄 ${player.loop || 'None'}`)
-                                            .setStyle(ButtonStyle.Secondary),
-                                        new ButtonBuilder()
-                                            .setCustomId(`shuffle_${guildId}`)
-                                            .setLabel('🔀 Shuffle')
-                                            .setStyle(ButtonStyle.Secondary)
-                                    );
-
-                                const updatedContainer = new ContainerBuilder()
-                                    .setAccentColor(0xdc92ff)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent('**🎵 NOW PLAYING**')
-                                    )
-                                    .addSeparatorComponents(separator => separator)
-                                    .addSectionComponents(
-                                        section => section
-                                            .addTextDisplayComponents(
-                                                textDisplay => textDisplay.setContent(`**${player.current.info.title}**\n\n${player.current.info.uri ? `**🔗 [Listen on Platform](${player.current.info.uri})**` : ''}\n\n**Track Details:**\n• Duration: ${this.formatDuration(player.current.info.length)}\n• Position: ${this.formatDuration(player.position)} / ${this.formatDuration(player.current.info.length)}\n• Volume: ${player.volume}%\n• Loop: ${player.loop || 'None'}\n\n**Requested by:** ${player.current.requester?.username || 'Unknown'}`)
-                                            )
-                                            .setThumbnailAccessory(
-                                                thumbnail => thumbnail
-                                                    .setURL(player.current.info.artwork || player.current.requester?.avatarURL || 'https://via.placeholder.com/300x300')
-                                                    .setDescription('Now Playing')
-                                            )
-                                    )
-                                    .addSeparatorComponents(separator => separator)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**⏱️ Progress:**\n${this.getProgressBar(player.position, player.current.info.length)}`)
-                                    )
-                                    .addActionRowComponents(
-                                        row => row.addComponents(updatedRow1.components)
-                                    )
-                                    .addActionRowComponents(
-                                        row => row.addComponents(updatedRow2.components)
-                                    )
-                                    .addActionRowComponents(
-                                        row => row.addComponents(updatedRow3.components)
-                                    );
-
-                                await i.editReply({ 
-                                    components: [updatedContainer]
-                                });
-                            }
-
-                        } catch (error) {
-                            console.error('Button interaction error:', error);
-                            await i.reply({ 
-                                content: '❌ An error occurred while processing your request.', 
-                                ephemeral: true 
-                            });
-                        }
-                    });
-
-                    collector.on('end', () => {
-                        // Optional: Remove buttons after timeout
-                    });
                     
-                    setTimeout(() => reply.delete().catch(() => {}), 120000); // Auto-delete after 2 minutes
+                    await createButtonCollector(reply, player);
+                    
+                    setTimeout(() => reply.delete().catch(() => {}), 120000);
                     break;
                 }
 
