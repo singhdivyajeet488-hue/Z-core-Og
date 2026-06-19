@@ -58,7 +58,7 @@
     "play-dl": "^1.9.7",
     "prism-media": "^1.3.5",
     "qrcode": "^1.5.3",
-    "riffy": "^1.0.6",
+    "riffy": "^2.1.0",
     "socket.io-client": "^4.8.1",
     "sodium-native": "^5.0.9",
     "songcard": "^1.4.1",
