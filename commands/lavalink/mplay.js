@@ -685,7 +685,6 @@ module.exports = {
                         });
 
                         // Track resolution logic
-                        let resolve;
                         if (query.includes('spotify.com')) {
                             try {
                                 const spotifyData = await getData(query);
@@ -791,7 +790,7 @@ module.exports = {
                                 return;
                             }
                             
-                            resolve = await client.riffy.resolve({ query, requester: user });
+                            const resolve = await client.riffy.resolve({ query, requester: user });
                             if (!resolve || !resolve.tracks || resolve.tracks.length === 0) {
                                 const noResultsContainer = new ContainerBuilder()
                                     .setAccentColor(0xff4757)
@@ -835,7 +834,7 @@ module.exports = {
                             }
                         }
                         else {
-                            resolve = await client.riffy.resolve({ query, requester: user });
+                            const resolve = await client.riffy.resolve({ query, requester: user });
                             
                             if (!resolve || !resolve.tracks || resolve.tracks.length === 0) {
                                 const noResultsContainer = new ContainerBuilder()
@@ -865,7 +864,8 @@ module.exports = {
                             }
                         }
 
-                        // Send now playing with buttons after a short delay - ONLY ONE MESSAGE                        setTimeout(async () => {
+                        // Send now playing with buttons after a short delay - ONLY ONE MESSAGE
+                        setTimeout(async () => {
                             const updatedPlayer = client.riffy.players.get(guildId);
                             if (updatedPlayer && updatedPlayer.current) {
                                 const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
