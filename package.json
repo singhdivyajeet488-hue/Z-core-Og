@@ -16,7 +16,7 @@
     "@discordjs/voice": "^0.18.0",
     "@distube/soundcloud": "^2.0.2",
     "@distube/spotify": "^2.0.2",
-    "@distube/yt-dlp": "^2.1.0",
+    "@distube/yt-dlp": "2.0.0",
     "@distube/ytdl": "^4.13.5",
     "@distube/ytdl-core": "^4.16.12",
     "@google/genai": "^1.15.0",
