@@ -416,24 +416,30 @@ module.exports = {
                             await player.seek(newPosition);
                             await i.reply({ content: `⏩ Forward 10 seconds!`, ephemeral: true });
                         }
-                        else if (i.customId.startsWith('seek_25')) {
-                            newPosition = Math.floor(trackDuration * 0.25);
-                            await player.seek(newPosition);
-                            await i.reply({ content: `⏩ Jumped to 25%!`, ephemeral: true });
+                        // Handle volume buttons
+                        else if (i.customId.startsWith('volume_down_')) {
+                            const newVolume = Math.max(0, player.volume - 10);
+                            player.setVolume(newVolume);
+                            await i.reply({ content: `🔉 Volume decreased to ${newVolume}%`, ephemeral: true });
                         }
-                        else if (i.customId.startsWith('seek_50')) {
-                            newPosition = Math.floor(trackDuration * 0.5);
-                            await player.seek(newPosition);
-                            await i.reply({ content: `⏩ Jumped to 50%!`, ephemeral: true });
+                        else if (i.customId.startsWith('volume_up_')) {
+                            const newVolume = Math.min(100, player.volume + 10);
+                            player.setVolume(newVolume);
+                            await i.reply({ content: `🔊 Volume increased to ${newVolume}%`, ephemeral: true });
                         }
-                        else if (i.customId.startsWith('seek_75')) {
-                            newPosition = Math.floor(trackDuration * 0.75);
-                            await player.seek(newPosition);
-                            await i.reply({ content: `⏩ Jumped to 75%!`, ephemeral: true });
-                        }
-                        else if (i.customId.startsWith('seek_100')) {
-                            await player.stop();
-                            await i.reply({ content: `⏩ Jumped to end!`, ephemeral: true });
+                        // Handle playback speed
+                        else if (i.customId.startsWith('speed_')) {
+                            const speedMap = {
+                                '0.5': '0.5x',
+                                '0.75': '0.75x',
+                                '1.0': '1.0x',
+                                '1.25': '1.25x',
+                                '1.5': '1.5x',
+                                '2.0': '2.0x'
+                            };
+                            const speed = i.customId.split('_')[1];
+                            await player.setSpeed(parseFloat(speed));
+                            await i.reply({ content: `⏩ Playback speed set to **${speedMap[speed] || speed}**`, ephemeral: true });
                         }
                         // Handle queue button
                         else if (i.customId.startsWith('queue_')) {
@@ -514,7 +520,10 @@ module.exports = {
                 const guildId = interaction.guild.id;
                 const currentTrack = player.current;
                 const isPaused = player.paused;
-                const progressBar = getProgressBar(player.position, currentTrack.info.length);
+                
+                // Get requester info with @mention
+                const requester = currentTrack.requester;
+                const requesterMention = requester ? `<@${requester.id}>` : 'Unknown';
                 
                 // Row 1: Seek buttons (-10s, -5s, +5s, +10s)
                 const row1 = new ActionRowBuilder()
@@ -537,29 +546,58 @@ module.exports = {
                             .setStyle(ButtonStyle.Primary)
                     );
 
-                // Row 2: Percentage seek buttons (25%, 50%, 75%, 100%)
+                // Row 2: Volume and Playback Speed buttons
                 const row2 = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
-                            .setCustomId(`seek_25_${guildId}`)
-                            .setLabel('25%')
+                            .setCustomId(`volume_down_${guildId}`)
+                            .setLabel('🔉 Vol -')
                             .setStyle(ButtonStyle.Secondary),
                         new ButtonBuilder()
-                            .setCustomId(`seek_50_${guildId}`)
-                            .setLabel('50%')
+                            .setCustomId(`volume_up_${guildId}`)
+                            .setLabel('🔊 Vol +')
                             .setStyle(ButtonStyle.Secondary),
                         new ButtonBuilder()
-                            .setCustomId(`seek_75_${guildId}`)
-                            .setLabel('75%')
+                            .setCustomId(`speed_0.5_${guildId}`)
+                            .setLabel('0.5x')
                             .setStyle(ButtonStyle.Secondary),
                         new ButtonBuilder()
-                            .setCustomId(`seek_100_${guildId}`)
-                            .setLabel('100%')
+                            .setCustomId(`speed_1.0_${guildId}`)
+                            .setLabel('1.0x')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`speed_1.5_${guildId}`)
+                            .setLabel('1.5x')
                             .setStyle(ButtonStyle.Secondary)
                     );
 
-                // Row 3: Control buttons (Pause, Skip, Stop, Queue, Loop)
+                // Row 3: More speed and controls
                 const row3 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`speed_0.75_${guildId}`)
+                            .setLabel('0.75x')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`speed_1.25_${guildId}`)
+                            .setLabel('1.25x')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`speed_2.0_${guildId}`)
+                            .setLabel('2.0x')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`loop_${guildId}`)
+                            .setLabel(`🔄 ${player.loop || 'None'}`)
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`shuffle_${guildId}`)
+                            .setLabel('🔀 Shuffle')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                // Row 4: Control buttons (Pause, Skip, Stop, Queue)
+                const row4 = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
                             .setCustomId(`pause_${guildId}`)
@@ -576,19 +614,6 @@ module.exports = {
                         new ButtonBuilder()
                             .setCustomId(`queue_${guildId}`)
                             .setLabel('📋 Queue')
-                            .setStyle(ButtonStyle.Secondary),
-                        new ButtonBuilder()
-                            .setCustomId(`loop_${guildId}`)
-                            .setLabel(`🔄 ${player.loop || 'None'}`)
-                            .setStyle(ButtonStyle.Secondary)
-                    );
-
-                // Row 4: Shuffle button
-                const row4 = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`shuffle_${guildId}`)
-                            .setLabel('🔀 Shuffle')
                             .setStyle(ButtonStyle.Secondary)
                     );
 
@@ -601,17 +626,13 @@ module.exports = {
                     .addSectionComponents(
                         section => section
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Artist:** ${currentTrack.info.author || 'Unknown'}\n**Duration:** ${formatDuration(currentTrack.info.length)}\n**Source:** ${currentTrack.info.sourceName || 'YouTube'}\n**Quality:** High Definition\n\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}\n**Queue Position:** Playing Now\n**Volume:** ${player.volume}%\n**Loop:** ${player.loop || 'none'}\n**Status:** ${isPaused ? '⏸️ Paused' : '▶️ Playing'}`)
+                                textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Artist:** ${currentTrack.info.author || 'Unknown'}\n**Duration:** ${formatDuration(currentTrack.info.length)}\n**Source:** ${currentTrack.info.sourceName || 'YouTube'}\n**Quality:** High Definition\n\n**Requested by:** ${requesterMention}\n**Queue Position:** Playing Now\n**Volume:** ${player.volume}%\n**Loop:** ${player.loop || 'none'}\n**Status:** ${isPaused ? '⏸️ Paused' : '▶️ Playing'}`)
                             )
                             .setThumbnailAccessory(
                                 thumbnail => thumbnail
                                     .setURL(currentTrack.info.artwork || currentTrack.requester?.avatarURL || 'https://via.placeholder.com/300x300')
                                     .setDescription('Now Playing')
                             )
-                    )
-                    .addSeparatorComponents(separator => separator)
-                    .addTextDisplayComponents(
-                        textDisplay => textDisplay.setContent(`**⏱️ Progress:**\n${progressBar}`)
                     )
                     .addSeparatorComponents(separator => separator)
                     .addActionRowComponents(
@@ -639,15 +660,6 @@ module.exports = {
                 } else {
                     return `${minutes}:${(seconds % 60).toString().padStart(2, '0')}`;
                 }
-            };
-
-            const getProgressBar = (current, total) => {
-                const barLength = 20;
-                const progress = Math.min((current / total) * barLength, barLength);
-                const filled = Math.floor(progress);
-                const empty = barLength - filled;
-                const percentage = Math.round((current / total) * 100);
-                return '█'.repeat(filled) + '░'.repeat(empty) + ` ${percentage}%`;
             };
   
             switch (subcommand) {
@@ -1242,7 +1254,7 @@ module.exports = {
                             .addSectionComponents(
                                 section => section
                                     .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Seek Position:** ${formatDuration(seekMs)}\n**Track Duration:** ${formatDuration(trackDuration)}\n**Remaining:** ${formatDuration(trackDuration - seekMs)}\n**Progress:** ${Math.round((seekMs / trackDuration) * 100)}%\n\n${getProgressBar(seekMs, trackDuration)}`)
+                                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Seek Position:** ${formatDuration(seekMs)}\n**Track Duration:** ${formatDuration(trackDuration)}\n**Remaining:** ${formatDuration(trackDuration - seekMs)}\n**Progress:** ${Math.round((seekMs / trackDuration) * 100)}%`)
                                     )
                                     .setThumbnailAccessory(
                                         thumbnail => thumbnail
@@ -2114,15 +2126,6 @@ module.exports = {
         const filledLength = Math.round((volume / 100) * barLength);
         const emptyLength = barLength - filledLength;
         return '█'.repeat(filledLength) + '░'.repeat(emptyLength) + ` ${volume}%`;
-    },
-
-    getProgressBar(current, total) {
-        const barLength = 20;
-        const progress = Math.min((current / total) * barLength, barLength);
-        const filled = Math.floor(progress);
-        const empty = barLength - filled;
-        const percentage = Math.round((current / total) * 100);
-        return '█'.repeat(filled) + '░'.repeat(empty) + ` ${percentage}%`;
     }
 };
 
