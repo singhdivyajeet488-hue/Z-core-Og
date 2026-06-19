@@ -14,7 +14,9 @@
 -------------------------------------
 > © 2025 GlaceYT.com | All rights reserved.
 */
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const musicIcons = require('../../UI/icons/musicicons');
+const cmdIcons = require('../../UI/icons/commandicons');
 const { autoplayCollection } = require('../../mongodb');
 const { playlistCollection } = require('../../mongodb');
 const SpotifyWebApi = require('spotify-web-api-node');
@@ -29,7 +31,7 @@ const spotifyApi = new SpotifyWebApi({
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('music')
-        .setDescription('🎵 Advanced music player')
+        .setDescription('🎵 Advanced music player with V2 components')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('play')
@@ -195,6 +197,7 @@ module.exports = {
             const { channel } = member.voice;
             const client = interaction.client;
 
+      
             const checkVoiceChannel = async () => {
                 if (!channel) {
                     const errorContainer = new ContainerBuilder()
@@ -228,6 +231,7 @@ module.exports = {
                     return false;
                 }
                 
+             
                 const permissions = channel.permissionsFor(client.user);
                 if (!permissions.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
                     const errorContainer = new ContainerBuilder()
@@ -247,6 +251,7 @@ module.exports = {
                 return true;
             };
 
+      
             const getOrCreatePlayer = async () => {
                 let player = client.riffy.players.get(guildId);
                 
@@ -278,6 +283,7 @@ module.exports = {
                 return player;
             };
 
+
             const checkPlayerExists = async () => {
                 const player = client.riffy.players.get(guildId);
                 
@@ -285,7 +291,15 @@ module.exports = {
                     const noPlayerContainer = new ContainerBuilder()
                         .setAccentColor(0xff4757)
                         .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent('**❌ NO ACTIVE PLAYER**\nThere is no active music player in this server.\n\nUse `/music play` to start playing music.')
+                            textDisplay => textDisplay.setContent('**❌ NO ACTIVE PLAYER**')
+                        )
+                        .addSeparatorComponents(separator => separator)
+                        .addTextDisplayComponents(
+                            textDisplay => textDisplay.setContent('There is no active music player in this server.\n\n**💡 Quick Fix:**\nUse `/music play` to start playing music and initialize the player.')
+                        )
+                        .addSeparatorComponents(separator => separator)
+                        .addTextDisplayComponents(
+                            textDisplay => textDisplay.setContent('**🎵 Get Started:**\n• Join a voice channel\n• Use `/music play <song name>` to begin\n• Enjoy high-quality audio streaming')
                         );
                 
                     const reply = await interaction.editReply({ 
@@ -299,6 +313,45 @@ module.exports = {
                 return player;
             };
 
+            // Show queue as an embed
+            const showQueueEmbed = async (interaction, player) => {
+                if (!player || !player.queue || player.queue.length === 0) {
+                    return {
+                        embeds: [new EmbedBuilder()
+                            .setColor(0xff4757)
+                            .setTitle('📋 QUEUE')
+                            .setDescription('The queue is empty!')
+                            .setFooter({ text: 'Add songs with /music play' })
+                        ],
+                        ephemeral: true
+                    };
+                }
+
+                const queue = player.queue;
+                const queueList = queue.slice(0, 10).map((track, i) => 
+                    `**${i + 1}.** ${track.info.title} - ${track.info.author || 'Unknown'}`
+                ).join('\n');
+
+                const embed = new EmbedBuilder()
+                    .setColor(0xdc92ff)
+                    .setTitle('🎶 MUSIC QUEUE')
+                    .setDescription(queueList)
+                    .addFields(
+                        { name: '📊 Total Tracks', value: `${queue.length}`, inline: true },
+                        { name: '⏱️ Estimated Duration', value: `~${Math.round(queue.length * 3.5)} minutes`, inline: true },
+                        { name: '🔄 Loop Mode', value: player.loop || 'None', inline: true }
+                    )
+                    .setFooter({ text: `Requested by ${interaction.user.username}` })
+                    .setTimestamp();
+
+                if (queue.length > 10) {
+                    embed.setFooter({ text: `...and ${queue.length - 10} more tracks` });
+                }
+
+                return { embeds: [embed], ephemeral: true };
+            };
+
+            // Helper functions
             const formatDuration = (ms) => {
                 const seconds = Math.floor(ms / 1000);
                 const minutes = Math.floor(seconds / 60);
@@ -320,7 +373,20 @@ module.exports = {
                         const user = interaction.user;
                         let player = await getOrCreatePlayer();
                         if (!player) return;
+                
+                        // Send loading message
+                        const loadingContainer = new ContainerBuilder()
+                            .setAccentColor(0xffa500)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**🔄 LOADING...**\nSearching for your track. Please wait...')
+                            );
 
+                        await interaction.editReply({ 
+                            components: [loadingContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
+
+                        // Track resolution logic
                         if (query.includes('spotify.com')) {
                             try {
                                 const spotifyData = await getData(query);
@@ -352,7 +418,7 @@ module.exports = {
                                     const noTracksContainer = new ContainerBuilder()
                                         .setAccentColor(0xff4757)
                                         .addTextDisplayComponents(
-                                            textDisplay => textDisplay.setContent('**❌ NO TRACKS FOUND**\nNo valid tracks found in this Spotify link.')
+                                            textDisplay => textDisplay.setContent('**❌ NO TRACKS FOUND**\nNo valid tracks found in this Spotify link.\n\nPlease verify the URL and try again.')
                                         );
 
                                     const reply = await interaction.editReply({ 
@@ -382,32 +448,28 @@ module.exports = {
                                     player.play();
                                 }
                                 
-                                const successContainer = new ContainerBuilder()
-                                    .setAccentColor(0x2ecc71)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**✅ ADDED TO QUEUE**\nAdded **${added}** track${added !== 1 ? 's' : ''} from Spotify.\n\n**Queue Position:** #${player.queue.length}`)
-                                    );
-
-                                const reply = await interaction.editReply({ 
-                                    components: [successContainer], 
-                                    flags: MessageFlags.IsComponentsV2 
-                                });
-                                setTimeout(() => reply.delete().catch(() => {}), 5000);
-                                
                             } catch (spotifyError) {
                                 console.error('Spotify error:', spotifyError);
                                 
                                 const spotifyErrorContainer = new ContainerBuilder()
                                     .setAccentColor(0xff4757)
                                     .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent('**❌ SPOTIFY ERROR**\nFailed to process Spotify link.')
+                                        textDisplay => textDisplay.setContent('**❌ SPOTIFY ERROR**')
+                                    )
+                                    .addSeparatorComponents(separator => separator)
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent('**Failed to process Spotify link**\n\nThis could be due to:\n• Invalid or private Spotify URL\n• API rate limiting\n• Spotify service issues\n• Configuration problems')
+                                    )
+                                    .addSeparatorComponents(separator => separator)
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent('**💡 Solutions:**\n• Try a different Spotify link\n• Ensure the playlist/track is public\n• Use YouTube or direct search instead\n• Contact support if issue persists')
                                     );
                                 
                                 const reply = await interaction.editReply({ 
                                     components: [spotifyErrorContainer], 
                                     flags: MessageFlags.IsComponentsV2 
                                 });
-                                setTimeout(() => reply.delete().catch(() => {}), 5000);
+                                setTimeout(() => reply.delete().catch(() => {}), 10000);
                                 return;
                             }
                         }  
@@ -435,7 +497,7 @@ module.exports = {
                                 const noResultsContainer = new ContainerBuilder()
                                     .setAccentColor(0xff4757)
                                     .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent('**❌ NO RESULTS FOUND**\nCouldn\'t find any tracks matching your YouTube link.')
+                                        textDisplay => textDisplay.setContent('**❌ NO RESULTS FOUND**\nCouldn\'t find any tracks matching your YouTube link.\n\nPlease check the URL and try again.')
                                     );
 
                                 const reply = await interaction.editReply({ 
@@ -459,19 +521,6 @@ module.exports = {
                                 if (!player.playing && !player.paused) {
                                     player.play();
                                 }
-                                
-                                const playlistContainer = new ContainerBuilder()
-                                    .setAccentColor(0x2ecc71)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**✅ PLAYLIST ADDED**\nAdded **${resolve.tracks.length}** tracks to queue.\n\n**Queue Size:** ${player.queue.length} tracks`)
-                                    );
-
-                                const reply = await interaction.editReply({ 
-                                    components: [playlistContainer], 
-                                    flags: MessageFlags.IsComponentsV2 
-                                });
-                                setTimeout(() => reply.delete().catch(() => {}), 5000);
-                                
                             } else {
                                 const track = resolve.tracks[0];
                                 track.requester = {
@@ -484,18 +533,6 @@ module.exports = {
                                 if (!player.playing && !player.paused) {
                                     player.play();
                                 }
-                                
-                                const trackContainer = new ContainerBuilder()
-                                    .setAccentColor(0x2ecc71)
-                                    .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**✅ TRACK ADDED**\n**${track.info.title}**\n\n**Queue Position:** #${player.queue.length}\n**Duration:** ${formatDuration(track.info.length)}`)
-                                    );
-
-                                const reply = await interaction.editReply({ 
-                                    components: [trackContainer], 
-                                    flags: MessageFlags.IsComponentsV2 
-                                });
-                                setTimeout(() => reply.delete().catch(() => {}), 5000);
                             }
                         }
                         else {
@@ -505,14 +542,14 @@ module.exports = {
                                 const noResultsContainer = new ContainerBuilder()
                                     .setAccentColor(0xff4757)
                                     .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent('**❌ NO SEARCH RESULTS**\nNo tracks found matching your search query.')
+                                        textDisplay => textDisplay.setContent('**❌ NO SEARCH RESULTS**\nNo tracks found matching your search query.\n\n**💡 Tips:**\n• Try different keywords\n• Include artist name\n• Check spelling\n• Use more specific terms')
                                     );
                             
                                 const reply = await interaction.editReply({ 
                                     components: [noResultsContainer], 
                                     flags: MessageFlags.IsComponentsV2 
                                 });
-                                setTimeout(() => reply.delete().catch(() => {}), 5000);
+                                setTimeout(() => reply.delete().catch(() => {}), 6000);
                                 return;
                             }
                 
@@ -527,33 +564,43 @@ module.exports = {
                             if (!player.playing && !player.paused) {
                                 player.play();
                             }
-                            
-                            const searchContainer = new ContainerBuilder()
-                                .setAccentColor(0x2ecc71)
-                                .addTextDisplayComponents(
-                                    textDisplay => textDisplay.setContent(`**✅ TRACK ADDED**\n**${track.info.title}**\n\n**Queue Position:** #${player.queue.length}\n**Duration:** ${formatDuration(track.info.length)}`)
-                                );
-
-                            const reply = await interaction.editReply({ 
-                                components: [searchContainer], 
-                                flags: MessageFlags.IsComponentsV2 
-                            });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
                         }
+
+                        // Just send a success message - now playing will be handled by music.js
+                        const successContainer = new ContainerBuilder()
+                            .setAccentColor(0x2ecc71)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**✅ TRACK ADDED**\nYour track has been added to the queue.\n\n${player.current ? `**Now Playing:** ${player.current.info.title}` : '**Queue Position:** ' + player.queue.length}\n\n**Queue Length:** ${player.queue.length} tracks`)
+                            );
+
+                        const reply = await interaction.editReply({ 
+                            components: [successContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
+                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        
                     } catch (error) {
                         console.error('Error resolving query:', error);
                     
                         const errorContainer = new ContainerBuilder()
                             .setAccentColor(0xff4757)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**❌ PLAYBACK ERROR**\nSomething went wrong while processing your request.\n\nPlease try again.')
+                                textDisplay => textDisplay.setContent('**❌ PLAYBACK ERROR**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**Something went wrong while processing your request.**\n\nThis could be due to:\n• Network connectivity issues\n• Invalid or restricted content\n• Lavalink server problems\n• Rate limiting')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**🔧 Troubleshooting:**\n• Try a different song or URL\n• Check your internet connection\n• Wait a moment and try again\n• Contact support if issues persist\n\n*Advanced users: Check Lavalink configuration*')
                             );
                     
                         const reply = await interaction.editReply({ 
                             components: [errorContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 10000);
                     }
                     
                     break;
@@ -579,29 +626,23 @@ module.exports = {
                         return;
                     }
                     
+                    // Just show a simple response - now playing is handled by music.js
                     const nowPlayingContainer = new ContainerBuilder()
                         .setAccentColor(0xdc92ff)
                         .addTextDisplayComponents(
                             textDisplay => textDisplay.setContent('**🎵 NOW PLAYING**')
                         )
                         .addSeparatorComponents(separator => separator)
-                        .addSectionComponents(
-                            section => section
-                                .addTextDisplayComponents(
-                                    textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Artist:** ${currentTrack.info.author || 'Unknown'}\n**Duration:** ${formatDuration(currentTrack.info.length)}\n**Source:** ${currentTrack.info.sourceName || 'YouTube'}\n\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}\n**Queue Position:** Playing Now\n**Volume:** ${player.volume}%\n**Loop:** ${player.loop || 'none'}`)
-                                )
-                                .setThumbnailAccessory(
-                                    thumbnail => thumbnail
-                                        .setURL(currentTrack.info.artwork || currentTrack.requester?.avatarURL || 'https://via.placeholder.com/300x300')
-                                        .setDescription('Now Playing')
-                                )
+                        .addTextDisplayComponents(
+                            textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Artist:** ${currentTrack.info.author || 'Unknown'}\n**Duration:** ${formatDuration(currentTrack.info.length)}\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}`)
                         );
 
                     const reply = await interaction.editReply({ 
                         components: [nowPlayingContainer], 
                         flags: MessageFlags.IsComponentsV2 
                     });
-                    setTimeout(() => reply.delete().catch(() => {}), 10000);
+                    setTimeout(() => reply.delete().catch(() => {}), 8000);
+                    
                     break;
                 }
 
@@ -669,14 +710,14 @@ module.exports = {
                     const shuffleContainer = new ContainerBuilder()
                         .setAccentColor(0xe91e63)
                         .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent('**🔀 QUEUE SHUFFLED**\nThe music queue has been shuffled randomly.\n\n**Queue Info:**\n• Total Tracks: ' + player.queue.length + '\n• Order: Randomized')
+                            textDisplay => textDisplay.setContent('**🔀 QUEUE SHUFFLED**\nThe music queue has been shuffled randomly.\n\n**Queue Info:**\n• Total Tracks: ' + player.queue.length + '\n• Order: Randomized\n• Next Up: ' + (player.queue[0]?.info.title || 'None'))
                         );
 
                     const reply = await interaction.editReply({ 
                         components: [shuffleContainer], 
                         flags: MessageFlags.IsComponentsV2 
                     });
-                    setTimeout(() => reply.delete().catch(() => {}), 5000);
+                    setTimeout(() => reply.delete().catch(() => {}), 6000);
                     break;
                 }
 
@@ -711,14 +752,18 @@ module.exports = {
                     const stopContainer = new ContainerBuilder()
                         .setAccentColor(0xe74c3c)
                         .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent('**⏹️ MUSIC STOPPED**\n• Music playback stopped\n• Queue cleared (${queueLength} tracks removed)\n• Player disconnected from voice channel')
+                            textDisplay => textDisplay.setContent('**⏹️ MUSIC STOPPED**')
+                        )
+                        .addSeparatorComponents(separator => separator)
+                        .addTextDisplayComponents(
+                            textDisplay => textDisplay.setContent(`**Playback has been completely stopped.**\n\n**Actions Performed:**\n• Music playback stopped\n• Queue cleared (${queueLength} tracks removed)\n• Player disconnected from voice channel\n• All resources cleaned up\n\nUse \`/music play\` to start a new session.`)
                         );
 
                     const reply = await interaction.editReply({ 
                         components: [stopContainer], 
                         flags: MessageFlags.IsComponentsV2 
                     });
-                    setTimeout(() => reply.delete().catch(() => {}), 5000);
+                    setTimeout(() => reply.delete().catch(() => {}), 8000);
                     break;
                 }
 
@@ -742,6 +787,7 @@ module.exports = {
                         return;
                     }
                     
+                  
                     const formattedQueue = queue.slice(0, 15).map((track, i) => 
                         `**${i + 1}.** ${track.info.title}\n> *Requested by ${track.requester?.username || 'Unknown'}*`
                     ).join('\n\n');
@@ -780,21 +826,25 @@ module.exports = {
                         const loopContainer = new ContainerBuilder()
                             .setAccentColor(0x9c27b0)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🔄 LOOP MODE UPDATED**\nLoop mode set to: **${mode.toUpperCase()}**`)
+                                textDisplay => textDisplay.setContent('**🔄 LOOP MODE UPDATED**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**Loop mode set to: ${mode.toUpperCase()}**\n\n**Mode Details:**\n${this.getLoopModeDescription(mode)}\n\n**Current Status:**\n• Active: ${mode !== 'none' ? '✅ Yes' : '❌ No'}\n• Type: ${mode === 'track' ? '🔂 Single Track' : mode === 'queue' ? '🔁 Entire Queue' : '➡️ No Loop'}`)
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [loopContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 8000);
                     } catch (error) {
                         console.error('Error setting loop mode:', error);
                         
                         const errorContainer = new ContainerBuilder()
                             .setAccentColor(0xff4757)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**❌ LOOP ERROR**\nFailed to set loop mode.\n\nPlease try again.')
+                                textDisplay => textDisplay.setContent('**❌ LOOP ERROR**\nFailed to set loop mode.\n\nPlease try again or contact support.')
                             );
 
                         const reply = await interaction.editReply({ 
@@ -822,7 +872,7 @@ module.exports = {
                             components: [invalidContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 6000);
                         return;
                     }
                     
@@ -832,14 +882,18 @@ module.exports = {
                     const removeContainer = new ContainerBuilder()
                         .setAccentColor(0xe74c3c)
                         .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent(`**🗑️ TRACK REMOVED**\n**${removedTrack.info.title}**\n\nRemaining tracks: ${player.queue.length}`)
+                            textDisplay => textDisplay.setContent('**🗑️ TRACK REMOVED**')
+                        )
+                        .addSeparatorComponents(separator => separator)
+                        .addTextDisplayComponents(
+                            textDisplay => textDisplay.setContent(`**Removed from queue:**\n**${removedTrack.info.title}**\n\n**Details:**\n• Position: #${trackNumber}\n• Requested by: ${removedTrack.requester?.username || 'Unknown'}\n• Remaining tracks: ${player.queue.length}`)
                         );
 
                     const reply = await interaction.editReply({ 
                         components: [removeContainer], 
                         flags: MessageFlags.IsComponentsV2 
                     });
-                    setTimeout(() => reply.delete().catch(() => {}), 5000);
+                    setTimeout(() => reply.delete().catch(() => {}), 7000);
                     break;
                 }
 
@@ -865,51 +919,68 @@ module.exports = {
                     
                     const seekPosition = interaction.options.getInteger('position');
                     const trackDuration = currentTrack.info.length;
-                    const seekMs = seekPosition * 1000;
+                    const seekMs = seekPosition * 1000; // Convert seconds to milliseconds
                     
                     if (seekMs > trackDuration) {
                         const invalidContainer = new ContainerBuilder()
                             .setAccentColor(0xff4757)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**❌ INVALID SEEK POSITION**\nTrack duration: ${formatDuration(trackDuration)}\nYour input: ${seekPosition} seconds\n\nPlease enter a position within ${Math.floor(trackDuration / 1000)} seconds.`)
+                                textDisplay => textDisplay.setContent(`**❌ INVALID SEEK POSITION**\nSeek position exceeds track duration.\n\n**Track Duration:** ${formatDuration(trackDuration)}\n**Your Input:** ${seekPosition} seconds (${formatDuration(seekMs)})\n\nPlease enter a position within ${Math.floor(trackDuration / 1000)} seconds.`)
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [invalidContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 8000);
                         return;
                     }
                     
+                    // Perform seek
                     try {
                         await player.seek(seekMs);
                         
                         const seekContainer = new ContainerBuilder()
                             .setAccentColor(0x9b59b6)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**⏩ TRACK POSITION UPDATED**\nSeeked to: ${formatDuration(seekMs)}\nProgress: ${Math.round((seekMs / trackDuration) * 100)}%`)
+                                textDisplay => textDisplay.setContent('**⏩ TRACK POSITION UPDATED**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addSectionComponents(
+                                section => section
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Seek Position:** ${formatDuration(seekMs)}\n**Track Duration:** ${formatDuration(trackDuration)}\n**Remaining:** ${formatDuration(trackDuration - seekMs)}\n**Progress:** ${Math.round((seekMs / trackDuration) * 100)}%`)
+                                    )
+                                    .setThumbnailAccessory(
+                                        thumbnail => thumbnail
+                                            .setURL(currentTrack.info.artwork || interaction.user.displayAvatarURL({ dynamic: true }))
+                                            .setDescription('Now Playing')
+                                    )
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**🎵 Track Info:**\n• Volume: ${player.volume}%\n• Loop: ${player.loop || 'None'}\n• Requested by: ${currentTrack.requester?.username || 'Unknown'}`)
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [seekContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 10000);
                     } catch (seekError) {
                         console.error('Seek error:', seekError);
                         
                         const seekErrorContainer = new ContainerBuilder()
                             .setAccentColor(0xff4757)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**❌ SEEK ERROR**\nFailed to seek to the specified position.\n\nPlease try again.')
+                                textDisplay => textDisplay.setContent('**❌ SEEK ERROR**\nFailed to seek to the specified position.\n\nThis could be due to:\n• Player connection issues\n• Unsupported track format\n• Network latency\n\nPlease try again or use a different position.')
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [seekErrorContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 7000);
                     }
                     break;
                 }
@@ -940,14 +1011,18 @@ module.exports = {
                     const volumeContainer = new ContainerBuilder()
                         .setAccentColor(0x2196f3)
                         .addTextDisplayComponents(
-                            textDisplay => textDisplay.setContent(`**🔊 VOLUME ADJUSTED**\nVolume changed from ${oldVolume}% to ${volume}%`)
+                            textDisplay => textDisplay.setContent('**🔊 VOLUME ADJUSTED**')
+                        )
+                        .addSeparatorComponents(separator => separator)
+                        .addTextDisplayComponents(
+                            textDisplay => textDisplay.setContent(`**Volume changed from ${oldVolume}% to ${volume}%**\n\n**Audio Level:**\n${this.getVolumeBar(volume)}\n\n**Status:**\n• Current: ${volume}%\n• Quality: ${volume > 80 ? 'High' : volume > 40 ? 'Medium' : 'Low'}\n• ${volume === 0 ? '🔇 Muted' : volume > 75 ? '🔊 Loud' : volume > 25 ? '🔉 Medium' : '🔈 Quiet'}`)
                         );
 
                     const reply = await interaction.editReply({ 
                         components: [volumeContainer], 
                         flags: MessageFlags.IsComponentsV2 
                     });
-                    setTimeout(() => reply.delete().catch(() => {}), 5000);
+                    setTimeout(() => reply.delete().catch(() => {}), 8000);
                     break;
                 }
 
@@ -961,14 +1036,14 @@ module.exports = {
                             const existsContainer = new ContainerBuilder()
                                 .setAccentColor(0xff4757)
                                 .addTextDisplayComponents(
-                                    textDisplay => textDisplay.setContent(`**❌ PLAYLIST EXISTS**\nA playlist named **"${name}"** already exists.\n\nPlease choose a different name.`)
+                                    textDisplay => textDisplay.setContent(`**❌ PLAYLIST EXISTS**\nA playlist named **"${name}"** already exists in your collection.\n\nPlease choose a different name or delete the existing playlist first.`)
                                 );
 
                             const reply = await interaction.editReply({ 
                                 components: [existsContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
 
@@ -983,21 +1058,33 @@ module.exports = {
                         const createContainer = new ContainerBuilder()
                             .setAccentColor(0x2ecc71)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**📋 PLAYLIST CREATED**\n**${name}** has been created successfully!\n\n**Visibility:** ${visibility.toUpperCase()}`)
+                                textDisplay => textDisplay.setContent('**📋 PLAYLIST CREATED**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addSectionComponents(
+                                section => section
+                                    .addTextDisplayComponents(
+                                        textDisplay => textDisplay.setContent(`**${name}** has been created successfully!\n\n**Details:**\n• Name: **${name}**\n• Visibility: **${visibility.toUpperCase()}**\n• Owner: ${interaction.user.username}\n• Songs: 0 (empty)\n• Status: Ready for tracks\n\n**Next Steps:**\n• Use \`/music addsong\` to add tracks\n• Use \`/music playplaylist\` to play it`)
+                                    )
+                                    .setThumbnailAccessory(
+                                        thumbnail => thumbnail
+                                            .setURL(interaction.user.displayAvatarURL({ dynamic: true }))
+                                            .setDescription('Created by')
+                                    )
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [createContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 10000);
                     } catch (error) {
                         console.error('Error creating playlist:', error);
                         
                         const errorContainer = new ContainerBuilder()
                             .setAccentColor(0xff4757)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**❌ CREATION FAILED**\nFailed to create playlist.\n\nPlease try again later.')
+                                textDisplay => textDisplay.setContent('**❌ CREATION FAILED**\nFailed to create playlist due to a database error.\n\nPlease try again later.')
                             );
 
                         const reply = await interaction.editReply({ 
@@ -1027,7 +1114,7 @@ module.exports = {
                                 components: [notFoundContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
                     
@@ -1042,7 +1129,7 @@ module.exports = {
                                 components: [privateContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
                     
@@ -1057,12 +1144,24 @@ module.exports = {
                                 components: [emptyContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
                     
                         let player = await getOrCreatePlayer();
                         if (!player) return;
+                    
+                        // Send loading message
+                        const loadingContainer = new ContainerBuilder()
+                            .setAccentColor(0xffa500)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**🔄 LOADING PLAYLIST**\nResolving ${playlist.songs.length} tracks from **${name}**...\n\nThis may take a moment for large playlists.`)
+                            );
+
+                        await interaction.editReply({ 
+                            components: [loadingContainer], 
+                            flags: MessageFlags.IsComponentsV2 
+                        });
                     
                         let addedTracks = 0;
                         let failedTracks = 0;
@@ -1100,25 +1199,26 @@ module.exports = {
                                 components: [noTracksContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 8000);
                             return;
                         }
 
                         if (!player.playing && !player.paused) {
                             player.play();
                         }
-                        
+
+                        // Just send a success message - now playing will be handled by music.js
                         const successContainer = new ContainerBuilder()
                             .setAccentColor(0x2ecc71)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**✅ PLAYLIST LOADED**\nAdded **${addedTracks}** tracks from **${name}**\n\n**Queue Size:** ${player.queue.length} tracks`)
+                                textDisplay => textDisplay.setContent(`**✅ PLAYLIST LOADED**\nSuccessfully added ${addedTracks} tracks from **${name}**!\n\n**${failedTracks > 0 ? `⚠️ ${failedTracks} tracks failed to load` : ''}**\n\n**Queue Length:** ${player.queue.length} tracks`)
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [successContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 8000);
                         
                     } catch (error) {
                         console.error('Error playing playlist:', error);
@@ -1126,14 +1226,14 @@ module.exports = {
                         const errorContainer = new ContainerBuilder()
                             .setAccentColor(0xff4757)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent('**❌ PLAYLIST ERROR**\nFailed to play playlist.\n\nPlease try again later.')
+                                textDisplay => textDisplay.setContent('**❌ PLAYLIST ERROR**\nFailed to play playlist due to an unexpected error.\n\nPlease try again later.')
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [errorContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 6000);
                     }
                     break;
                 }
@@ -1152,7 +1252,7 @@ module.exports = {
                                 components: [noPlaylistsContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
 
@@ -1163,14 +1263,22 @@ module.exports = {
                         const myPlaylistsContainer = new ContainerBuilder()
                             .setAccentColor(0x3498db)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🎶 YOUR PLAYLISTS**\n\n${playlistList}`)
+                                textDisplay => textDisplay.setContent('**🎶 YOUR PLAYLISTS**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**You have ${playlists.length} playlist${playlists.length !== 1 ? 's' : ''}**\n\n${playlistList}`)
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent('**💡 Quick Actions:**\n• `/music playplaylist` - Play a playlist\n• `/music viewmyplaylistsongs` - View songs\n• `/music addsong` - Add more tracks\n• `/music deleteplaylist` - Remove playlist')
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [myPlaylistsContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 10000);
+                        setTimeout(() => reply.delete().catch(() => {}), 15000);
                     } catch (error) {
                         console.error('Error viewing playlists:', error);
                         
@@ -1205,7 +1313,7 @@ module.exports = {
                                 components: [notFoundContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
             
@@ -1220,7 +1328,7 @@ module.exports = {
                                 components: [privateContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
             
@@ -1235,7 +1343,7 @@ module.exports = {
                                 components: [emptyContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
             
@@ -1246,14 +1354,22 @@ module.exports = {
                         const songsContainer = new ContainerBuilder()
                             .setAccentColor(0x3498db)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🎵 SONGS IN "${playlistName.toUpperCase()}"**\n\n${songList}${playlist.songs.length > 15 ? `\n\n*...and ${playlist.songs.length - 15} more songs*` : ''}`)
+                                textDisplay => textDisplay.setContent(`**🎵 SONGS IN "${playlistName.toUpperCase()}"**`)
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**Playlist Details:**\n• Total Songs: **${playlist.songs.length}**\n• Owner: ${playlist.owner === userId ? 'You' : '<@' + playlist.owner + '>'}\n• Visibility: **${playlist.visibility === 'public' ? '🌍 Public' : '🔒 Private'}**\n• Created: ${playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString() : 'Unknown'}`)
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**📋 Track List:**\n\n${songList}${playlist.songs.length > 15 ? `\n\n*...and ${playlist.songs.length - 15} more songs*` : ''}`)
                             );
             
                         const reply = await interaction.editReply({ 
                             components: [songsContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 15000);
+                        setTimeout(() => reply.delete().catch(() => {}), 20000);
                     } catch (error) {
                         console.error('Error viewing playlist songs:', error);
                         
@@ -1286,7 +1402,7 @@ module.exports = {
                                 components: [noPublicContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
 
@@ -1297,14 +1413,22 @@ module.exports = {
                         const allPlaylistsContainer = new ContainerBuilder()
                             .setAccentColor(0x2ecc71)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🌍 PUBLIC PLAYLISTS**\n\n${publicList}${playlists.length > 20 ? `\n\n*...and ${playlists.length - 20} more playlists*` : ''}`)
+                                textDisplay => textDisplay.setContent('**🌍 PUBLIC PLAYLISTS**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**${playlists.length} public playlist${playlists.length !== 1 ? 's' : ''} available**\n\nAnyone can play these playlists using \`/music playplaylist\``)
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**📋 Available Playlists:**\n\n${publicList}${playlists.length > 20 ? `\n\n*...and ${playlists.length - 20} more playlists*` : ''}`)
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [allPlaylistsContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 15000);
+                        setTimeout(() => reply.delete().catch(() => {}), 25000);
                     } catch (error) {
                         console.error('Error retrieving public playlists:', error);
                         
@@ -1341,7 +1465,7 @@ module.exports = {
                                 components: [notFoundContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
                         
@@ -1356,7 +1480,7 @@ module.exports = {
                                 components: [noPermissionContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
                         
@@ -1371,11 +1495,13 @@ module.exports = {
                                 components: [invalidIndexContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 7000);
                             return;
                         }
                         
                         const removedSong = playlist.songs[songIndex];
+                        
+                     
                         playlist.songs.splice(songIndex, 1);
                         
                         await playlistCollection.updateOne(
@@ -1386,14 +1512,18 @@ module.exports = {
                         const deleteSongContainer = new ContainerBuilder()
                             .setAccentColor(0xe74c3c)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🗑️ SONG REMOVED**\nRemoved: ${removedSong}\n\nRemaining Songs: ${playlist.songs.length}`)
+                                textDisplay => textDisplay.setContent('**🗑️ SONG REMOVED**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**Successfully removed song from playlist!**\n\n**Removed Song:**\n${removedSong}\n\n**Playlist:** ${playlistName}\n**Remaining Songs:** ${playlist.songs.length}\n**Position:** #${songIndex + 1}`)
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [deleteSongContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 8000);
                     } catch (error) {
                         console.error('Error deleting song from playlist:', error);
                         
@@ -1429,7 +1559,7 @@ module.exports = {
                                 components: [notFoundContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
                         
@@ -1444,7 +1574,7 @@ module.exports = {
                                 components: [noPermissionContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
                         
@@ -1453,14 +1583,18 @@ module.exports = {
                         const deletePlaylistContainer = new ContainerBuilder()
                             .setAccentColor(0xe74c3c)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🗑️ PLAYLIST DELETED**\n**${playlistName}** has been permanently removed.\n\nSongs Lost: ${playlist.songs.length}`)
+                                textDisplay => textDisplay.setContent('**🗑️ PLAYLIST DELETED**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**Playlist permanently removed!**\n\n**Deleted:** ${playlistName}\n**Songs Lost:** ${playlist.songs.length}\n**Type:** ${playlist.visibility} playlist\n\n**⚠️ This action cannot be undone.**\n\nYou can create a new playlist with the same name if needed.`)
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [deletePlaylistContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 10000);
                     } catch (error) {
                         console.error('Error deleting playlist:', error);
                         
@@ -1493,7 +1627,11 @@ module.exports = {
                         const autoplayContainer = new ContainerBuilder()
                             .setAccentColor(enable ? 0x2ecc71 : 0xff4757)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**🔄 AUTOPLAY ${enable ? 'ENABLED' : 'DISABLED'}**\n\nAutoplay is now ${enable ? 'on' : 'off'}.`)
+                                textDisplay => textDisplay.setContent('**🔄 AUTOPLAY SETTINGS**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**Autoplay is now ${enable ? 'ENABLED' : 'DISABLED'}**\n\n**What this means:**\n${enable ? '• Automatic queue replenishment\n• Continuous music playback\n• Smart song suggestions\n• No manual intervention needed' : '• Queue stops when empty\n• Manual track addition required\n• Playback ends after last song\n• Full user control'}\n\n**Status:** ${enable ? '✅ Active' : '❌ Inactive'}`)
                             );
 
                         const reply = await interaction.editReply({ 
@@ -1501,8 +1639,9 @@ module.exports = {
                             flags: MessageFlags.IsComponentsV2 
                         });
                     
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 8000);
                         
+                       
                         const player = client.riffy.players.get(guildId);
                         if (player) {
                             player.autoplay = enable;
@@ -1543,7 +1682,7 @@ module.exports = {
                                 components: [notFoundContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 6000);
                             return;
                         }
             
@@ -1558,10 +1697,11 @@ module.exports = {
                                 components: [noPermissionContainer], 
                                 flags: MessageFlags.IsComponentsV2 
                             });
-                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                            setTimeout(() => reply.delete().catch(() => {}), 7000);
                             return;
                         }
             
+                      
                         await playlistCollection.updateOne(
                             { name: playlistName },
                             { 
@@ -1573,14 +1713,18 @@ module.exports = {
                         const addSongContainer = new ContainerBuilder()
                             .setAccentColor(0x2ecc71)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**➕ SONG ADDED**\nAdded to **${playlistName}**\n\n**Song:** ${songInput}\n**Total Songs:** ${playlist.songs.length + 1}`)
+                                textDisplay => textDisplay.setContent('**➕ SONG ADDED**')
+                            )
+                            .addSeparatorComponents(separator => separator)
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**Successfully added to playlist!**\n\n**Song:** ${songInput}\n**Playlist:** ${playlistName}\n**Total Songs:** ${playlist.songs.length + 1}\n**Added by:** ${interaction.user.username}\n\n**Quick Actions:**\n• \`/music playplaylist\` - Play this playlist\n• \`/music viewmyplaylistsongs\` - View all songs`)
                             );
 
                         const reply = await interaction.editReply({ 
                             components: [addSongContainer], 
                             flags: MessageFlags.IsComponentsV2 
                         });
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        setTimeout(() => reply.delete().catch(() => {}), 10000);
                     } catch (error) {
                         console.error('Error adding song to playlist:', error);
                         
@@ -1619,7 +1763,15 @@ module.exports = {
             const criticalErrorContainer = new ContainerBuilder()
                 .setAccentColor(0xff4757)
                 .addTextDisplayComponents(
-                    textDisplay => textDisplay.setContent('**❌ CRITICAL ERROR**\nAn unexpected error occurred.\n\nPlease try again later.')
+                    textDisplay => textDisplay.setContent('**❌ CRITICAL ERROR**')
+                )
+                .addSeparatorComponents(separator => separator)
+                .addTextDisplayComponents(
+                    textDisplay => textDisplay.setContent('**An unexpected error occurred while processing your music command.**\n\nThis could be due to:\n• Network connectivity issues\n• Database connection problems\n• Lavalink server unavailable\n• Discord API limitations')
+                )
+                .addSeparatorComponents(separator => separator)
+                .addTextDisplayComponents(
+                    textDisplay => textDisplay.setContent('**🔧 Recommended Actions:**\n• Try again in a few moments\n• Check your internet connection\n• Verify voice channel permissions\n• Contact support if issue persists\n\n*Error has been logged for investigation*')
                 );
 
             try {
@@ -1640,6 +1792,7 @@ module.exports = {
         }
     },
 
+
     formatDuration(ms) {
         const seconds = Math.floor(ms / 1000);
         const minutes = Math.floor(seconds / 60);
@@ -1650,5 +1803,38 @@ module.exports = {
         } else {
             return `${minutes}:${(seconds % 60).toString().padStart(2, '0')}`;
         }
+    },
+
+    getLoopModeDescription(mode) {
+        const descriptions = {
+            'none': '• Music will play through the queue once\n• No tracks will repeat automatically\n• Queue ends when last track finishes',
+            'track': '• Current track will repeat indefinitely\n• Same song plays over and over\n• Perfect for favorite tracks',
+            'queue': '• Entire queue repeats when finished\n• Continuous playlist playback\n• All tracks cycle through repeatedly'
+        };
+        return descriptions[mode] || 'Unknown loop mode';
+    },
+
+    getVolumeBar(volume) {
+        const barLength = 20;
+        const filledLength = Math.round((volume / 100) * barLength);
+        const emptyLength = barLength - filledLength;
+        return '█'.repeat(filledLength) + '░'.repeat(emptyLength) + ` ${volume}%`;
     }
 };
+
+/*
+ ██████▗  ██▗      ██████  ████████▗███████████▗██▗   ██▗█████████
+██▄▄▄▄▄  ██▄     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄██▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+██▌  ███ ██▌     ███████  ████████▌█████████████▌   ██▌█████████▌
+██▌   ██▌██▌     ██▄▄▄▄▄  ██▄▄▄▄▄▄▄█████▄▄▄▄▄▄▄    ██▌█████▄▄▄▄▄ 
+█████████▌███████████████▌█████████▌█████████████▌   ██▌█████████▌
+ ▀▀▀▀▀▀▀ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+-------------------------------------
+📡 Discord : https://discord.gg/xQF9f9yUEM
+🌐 Website : https://glaceyt.com
+🎥 YouTube : https://youtube.com/@GlaceYT
+✅ Verified | 🧩 Tested | ⚙️ Stable
+-------------------------------------
+> © 2025 GlaceYT.com | All rights reserved.
+*/
