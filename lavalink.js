@@ -1,10 +1,10 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "lavalink.devamop.in",
-      password: "DevamOP",
-      host: "lavalink.devamop.in",
-      port: 443,
-      secure: true
+      name: "NexCloud-N3",
+      password: "nexcloud",
+      host: "n3.nexcloud.in",
+      port: 2026,
+      secure: false
     }
 };
