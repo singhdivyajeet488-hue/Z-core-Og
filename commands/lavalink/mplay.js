@@ -14,7 +14,7 @@
 -------------------------------------
 > © 2025 GlaceYT.com | All rights reserved.
 */
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const musicIcons = require('../../UI/icons/musicicons');
 const cmdIcons = require('../../UI/icons/commandicons');
 const { autoplayCollection } = require('../../mongodb');
@@ -187,110 +187,6 @@ module.exports = {
                         .setDescription('Volume level (0-100).')
                         .setRequired(true))),
 
-    // Helper function to create the now playing embed with buttons
-    createNowPlayingEmbed(player, interaction) {
-        if (!player || !player.current) return null;
-        
-        const guildId = interaction.guild.id;
-        const currentTrack = player.current;
-        const isPaused = player.paused;
-        
-        const row1 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`seek_back_10_${guildId}`)
-                    .setLabel('⏪ -10s')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setCustomId(`seek_back_5_${guildId}`)
-                    .setLabel('◀️ -5s')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setCustomId(`seek_forward_5_${guildId}`)
-                    .setLabel('▶️ +5s')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setCustomId(`seek_forward_10_${guildId}`)
-                    .setLabel('⏩ +10s')
-                    .setStyle(ButtonStyle.Primary)
-            );
-
-        const row2 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`seek_25_${guildId}`)
-                    .setLabel('25%')
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId(`seek_50_${guildId}`)
-                    .setLabel('50%')
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId(`seek_75_${guildId}`)
-                    .setLabel('75%')
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId(`seek_100_${guildId}`)
-                    .setLabel('100%')
-                    .setStyle(ButtonStyle.Secondary)
-            );
-
-        const row3 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`pause_${guildId}`)
-                    .setLabel(isPaused ? '▶️ Resume' : '⏸️ Pause')
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId(`skip_${guildId}`)
-                    .setLabel('⏭️ Skip')
-                    .setStyle(ButtonStyle.Danger),
-                new ButtonBuilder()
-                    .setCustomId(`stop_${guildId}`)
-                    .setLabel('⏹️ Stop')
-                    .setStyle(ButtonStyle.Danger),
-                new ButtonBuilder()
-                    .setCustomId(`loop_${guildId}`)
-                    .setLabel(`🔄 ${player.loop || 'None'}`)
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId(`shuffle_${guildId}`)
-                    .setLabel('🔀 Shuffle')
-                    .setStyle(ButtonStyle.Secondary)
-            );
-
-        return new ContainerBuilder()
-            .setAccentColor(0xdc92ff)
-            .addTextDisplayComponents(
-                textDisplay => textDisplay.setContent('**🎵 NOW PLAYING**')
-            )
-            .addSeparatorComponents(separator => separator)
-            .addSectionComponents(
-                section => section
-                    .addTextDisplayComponents(
-                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n${currentTrack.info.uri ? `**🔗 [Listen on Platform](${currentTrack.info.uri})**` : ''}\n\n**Track Details:**\n• Duration: ${this.formatDuration(currentTrack.info.length)}\n• Position: ${this.formatDuration(player.position)} / ${this.formatDuration(currentTrack.info.length)}\n• Volume: ${player.volume}%\n• Loop: ${player.loop || 'None'}\n\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}`)
-                    )
-                    .setThumbnailAccessory(
-                        thumbnail => thumbnail
-                            .setURL(currentTrack.info.artwork || currentTrack.requester?.avatarURL || 'https://via.placeholder.com/300x300')
-                            .setDescription('Now Playing')
-                    )
-            )
-            .addSeparatorComponents(separator => separator)
-            .addTextDisplayComponents(
-                textDisplay => textDisplay.setContent(`**⏱️ Progress:**\n${this.getProgressBar(player.position, currentTrack.info.length)}`)
-            )
-            .addActionRowComponents(
-                row => row.addComponents(row1.components)
-            )
-            .addActionRowComponents(
-                row => row.addComponents(row2.components)
-            )
-            .addActionRowComponents(
-                row => row.addComponents(row3.components)
-            );
-    },
-
     async execute(interaction) {
         try {
             await interaction.deferReply();
@@ -417,11 +313,62 @@ module.exports = {
                 return player;
             };
 
+            // Show queue as an embed
+            const showQueueEmbed = async (interaction, player) => {
+                if (!player || !player.queue || player.queue.length === 0) {
+                    return {
+                        embeds: [new EmbedBuilder()
+                            .setColor(0xff4757)
+                            .setTitle('📋 QUEUE')
+                            .setDescription('The queue is empty!')
+                            .setFooter({ text: 'Add songs with /music play' })
+                        ],
+                        ephemeral: true
+                    };
+                }
+
+                const queue = player.queue;
+                const queueList = queue.slice(0, 10).map((track, i) => 
+                    `**${i + 1}.** ${track.info.title} - ${track.info.author || 'Unknown'}`
+                ).join('\n');
+
+                const embed = new EmbedBuilder()
+                    .setColor(0xdc92ff)
+                    .setTitle('🎶 MUSIC QUEUE')
+                    .setDescription(queueList)
+                    .addFields(
+                        { name: '📊 Total Tracks', value: `${queue.length}`, inline: true },
+                        { name: '⏱️ Estimated Duration', value: `~${Math.round(queue.length * 3.5)} minutes`, inline: true },
+                        { name: '🔄 Loop Mode', value: player.loop || 'None', inline: true }
+                    )
+                    .setFooter({ text: `Requested by ${interaction.user.username}` })
+                    .setTimestamp();
+
+                if (queue.length > 10) {
+                    embed.setFooter({ text: `...and ${queue.length - 10} more tracks` });
+                }
+
+                return { embeds: [embed], ephemeral: true };
+            };
+
             // Create button collector for now playing messages
             const createButtonCollector = async (reply, player) => {
                 const collector = reply.createMessageComponentCollector({ 
                     time: 120000 // 2 minutes
                 });
+
+                // Listen for track end event to delete the message
+                const trackEndHandler = () => {
+                    reply.delete().catch(() => {});
+                    collector.stop();
+                };
+
+                // Store the handler to clean up later
+                const handlerKey = `trackEnd_${reply.id}`;
+                client[handlerKey] = trackEndHandler;
+
+                // Listen for player track end
+                player.once('trackEnd', trackEndHandler);
 
                 collector.on('collect', async (i) => {
                     if (i.user.id !== interaction.user.id) {
@@ -488,6 +435,12 @@ module.exports = {
                             await player.stop();
                             await i.reply({ content: `⏩ Jumped to end!`, ephemeral: true });
                         }
+                        // Handle queue button
+                        else if (i.customId.startsWith('queue_')) {
+                            const queueData = await showQueueEmbed(i, player);
+                            await i.reply(queueData);
+                            return;
+                        }
                         // Handle existing controls
                         else if (i.customId.startsWith('pause_')) {
                             if (player.paused) {
@@ -506,6 +459,7 @@ module.exports = {
                             player.destroy();
                             await i.reply({ content: '⏹️ Stopped playback!', ephemeral: true });
                             collector.stop();
+                            reply.delete().catch(() => {});
                         }
                         else if (i.customId.startsWith('loop_')) {
                             const loopModes = ['none', 'track', 'queue'];
@@ -524,8 +478,8 @@ module.exports = {
                         }
 
                         // Update the now playing message with new position
-                        if (player.current && !i.customId.startsWith('stop_')) {
-                            const updatedEmbed = this.createNowPlayingEmbed(player, interaction);
+                        if (player.current && !i.customId.startsWith('stop_') && !i.customId.startsWith('queue_')) {
+                            const updatedEmbed = createNowPlayingEmbed(player, interaction);
                             if (updatedEmbed) {
                                 await i.editReply({ 
                                     components: [updatedEmbed]
@@ -542,7 +496,158 @@ module.exports = {
                     }
                 });
 
+                collector.on('end', () => {
+                    // Clean up the event listener
+                    if (client[handlerKey]) {
+                        player.off('trackEnd', client[handlerKey]);
+                        delete client[handlerKey];
+                    }
+                });
+
                 return collector;
+            };
+
+            // Helper function to create the now playing embed with buttons
+            const createNowPlayingEmbed = (player, interaction) => {
+                if (!player || !player.current) return null;
+                
+                const guildId = interaction.guild.id;
+                const currentTrack = player.current;
+                const isPaused = player.paused;
+                const progressBar = getProgressBar(player.position, currentTrack.info.length);
+                
+                // Row 1: Seek buttons (-10s, -5s, +5s, +10s)
+                const row1 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`seek_back_10_${guildId}`)
+                            .setLabel('⏪ -10s')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`seek_back_5_${guildId}`)
+                            .setLabel('◀️ -5s')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`seek_forward_5_${guildId}`)
+                            .setLabel('▶️ +5s')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`seek_forward_10_${guildId}`)
+                            .setLabel('⏩ +10s')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+
+                // Row 2: Percentage seek buttons (25%, 50%, 75%, 100%)
+                const row2 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`seek_25_${guildId}`)
+                            .setLabel('25%')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`seek_50_${guildId}`)
+                            .setLabel('50%')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`seek_75_${guildId}`)
+                            .setLabel('75%')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`seek_100_${guildId}`)
+                            .setLabel('100%')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                // Row 3: Control buttons (Pause, Skip, Stop, Queue, Loop)
+                const row3 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`pause_${guildId}`)
+                            .setLabel(isPaused ? '▶️ Resume' : '⏸️ Pause')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId(`skip_${guildId}`)
+                            .setLabel('⏭️ Skip')
+                            .setStyle(ButtonStyle.Danger),
+                        new ButtonBuilder()
+                            .setCustomId(`stop_${guildId}`)
+                            .setLabel('⏹️ Stop')
+                            .setStyle(ButtonStyle.Danger),
+                        new ButtonBuilder()
+                            .setCustomId(`queue_${guildId}`)
+                            .setLabel('📋 Queue')
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId(`loop_${guildId}`)
+                            .setLabel(`🔄 ${player.loop || 'None'}`)
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                // Row 4: Shuffle button
+                const row4 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`shuffle_${guildId}`)
+                            .setLabel('🔀 Shuffle')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                return new ContainerBuilder()
+                    .setAccentColor(0xdc92ff)
+                    .addTextDisplayComponents(
+                        textDisplay => textDisplay.setContent('**🎵 NOW PLAYING**')
+                    )
+                    .addSeparatorComponents(separator => separator)
+                    .addSectionComponents(
+                        section => section
+                            .addTextDisplayComponents(
+                                textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Artist:** ${currentTrack.info.author || 'Unknown'}\n**Duration:** ${formatDuration(currentTrack.info.length)}\n**Source:** ${currentTrack.info.sourceName || 'YouTube'}\n**Quality:** High Definition\n\n**Requested by:** ${currentTrack.requester?.username || 'Unknown'}\n**Queue Position:** Playing Now\n**Volume:** ${player.volume}%\n**Loop:** ${player.loop || 'none'}\n**Status:** ${isPaused ? '⏸️ Paused' : '▶️ Playing'}`)
+                            )
+                            .setThumbnailAccessory(
+                                thumbnail => thumbnail
+                                    .setURL(currentTrack.info.artwork || currentTrack.requester?.avatarURL || 'https://via.placeholder.com/300x300')
+                                    .setDescription('Now Playing')
+                            )
+                    )
+                    .addSeparatorComponents(separator => separator)
+                    .addTextDisplayComponents(
+                        textDisplay => textDisplay.setContent(`**⏱️ Progress:**\n${progressBar}`)
+                    )
+                    .addSeparatorComponents(separator => separator)
+                    .addActionRowComponents(
+                        row => row.addComponents(row1.components)
+                    )
+                    .addActionRowComponents(
+                        row => row.addComponents(row2.components)
+                    )
+                    .addActionRowComponents(
+                        row => row.addComponents(row3.components)
+                    )
+                    .addActionRowComponents(
+                        row => row.addComponents(row4.components)
+                    );
+            };
+
+            // Helper functions
+            const formatDuration = (ms) => {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                
+                if (hours > 0) {
+                    return `${hours}:${(minutes % 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+                } else {
+                    return `${minutes}:${(seconds % 60).toString().padStart(2, '0')}`;
+                }
+            };
+
+            const getProgressBar = (current, total) => {
+                const barLength = 20;
+                const progress = Math.min((current / total) * barLength, barLength);
+                const filled = Math.floor(progress);
+                const empty = barLength - filled;
+                const percentage = Math.round((current / total) * 100);
+                return '█'.repeat(filled) + '░'.repeat(empty) + ` ${percentage}%`;
             };
   
             switch (subcommand) {
@@ -621,7 +726,7 @@ module.exports = {
                                 setTimeout(async () => {
                                     const updatedPlayer = client.riffy.players.get(guildId);
                                     if (updatedPlayer && updatedPlayer.current) {
-                                        const nowPlayingEmbed = this.createNowPlayingEmbed(updatedPlayer, interaction);
+                                        const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
                                         if (nowPlayingEmbed) {
                                             const reply = await interaction.editReply({ 
                                                 components: [nowPlayingEmbed], 
@@ -711,7 +816,7 @@ module.exports = {
                                 setTimeout(async () => {
                                     const updatedPlayer = client.riffy.players.get(guildId);
                                     if (updatedPlayer && updatedPlayer.current) {
-                                        const nowPlayingEmbed = this.createNowPlayingEmbed(updatedPlayer, interaction);
+                                        const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
                                         if (nowPlayingEmbed) {
                                             const reply = await interaction.editReply({ 
                                                 components: [nowPlayingEmbed], 
@@ -739,7 +844,7 @@ module.exports = {
                                 setTimeout(async () => {
                                     const updatedPlayer = client.riffy.players.get(guildId);
                                     if (updatedPlayer && updatedPlayer.current) {
-                                        const nowPlayingEmbed = this.createNowPlayingEmbed(updatedPlayer, interaction);
+                                        const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
                                         if (nowPlayingEmbed) {
                                             const reply = await interaction.editReply({ 
                                                 components: [nowPlayingEmbed], 
@@ -788,7 +893,7 @@ module.exports = {
                             setTimeout(async () => {
                                 const updatedPlayer = client.riffy.players.get(guildId);
                                 if (updatedPlayer && updatedPlayer.current) {
-                                    const nowPlayingEmbed = this.createNowPlayingEmbed(updatedPlayer, interaction);
+                                    const nowPlayingEmbed = createNowPlayingEmbed(updatedPlayer, interaction);
                                     if (nowPlayingEmbed) {
                                         const reply = await interaction.editReply({ 
                                             components: [nowPlayingEmbed], 
@@ -846,7 +951,7 @@ module.exports = {
                         return;
                     }
                     
-                    const nowPlayingEmbed = this.createNowPlayingEmbed(player, interaction);
+                    const nowPlayingEmbed = createNowPlayingEmbed(player, interaction);
                     if (!nowPlayingEmbed) {
                         const errorContainer = new ContainerBuilder()
                             .setAccentColor(0xff4757)
@@ -867,7 +972,6 @@ module.exports = {
                     
                     await createButtonCollector(reply, player);
                     
-                    setTimeout(() => reply.delete().catch(() => {}), 120000);
                     break;
                 }
 
@@ -1150,7 +1254,7 @@ module.exports = {
                         const invalidContainer = new ContainerBuilder()
                             .setAccentColor(0xff4757)
                             .addTextDisplayComponents(
-                                textDisplay => textDisplay.setContent(`**❌ INVALID SEEK POSITION**\nSeek position exceeds track duration.\n\n**Track Duration:** ${this.formatDuration(trackDuration)}\n**Your Input:** ${seekPosition} seconds (${this.formatDuration(seekMs)})\n\nPlease enter a position within ${Math.floor(trackDuration / 1000)} seconds.`)
+                                textDisplay => textDisplay.setContent(`**❌ INVALID SEEK POSITION**\nSeek position exceeds track duration.\n\n**Track Duration:** ${formatDuration(trackDuration)}\n**Your Input:** ${seekPosition} seconds (${formatDuration(seekMs)})\n\nPlease enter a position within ${Math.floor(trackDuration / 1000)} seconds.`)
                             );
 
                         const reply = await interaction.editReply({ 
@@ -1174,7 +1278,7 @@ module.exports = {
                             .addSectionComponents(
                                 section => section
                                     .addTextDisplayComponents(
-                                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Seek Position:** ${this.formatDuration(seekMs)}\n**Track Duration:** ${this.formatDuration(trackDuration)}\n**Remaining:** ${this.formatDuration(trackDuration - seekMs)}\n**Progress:** ${Math.round((seekMs / trackDuration) * 100)}%\n\n${this.getProgressBar(seekMs, trackDuration)}`)
+                                        textDisplay => textDisplay.setContent(`**${currentTrack.info.title}**\n\n**Seek Position:** ${formatDuration(seekMs)}\n**Track Duration:** ${formatDuration(trackDuration)}\n**Remaining:** ${formatDuration(trackDuration - seekMs)}\n**Progress:** ${Math.round((seekMs / trackDuration) * 100)}%\n\n${getProgressBar(seekMs, trackDuration)}`)
                                     )
                                     .setThumbnailAccessory(
                                         thumbnail => thumbnail
