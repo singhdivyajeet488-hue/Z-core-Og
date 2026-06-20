@@ -4,7 +4,7 @@ module.exports = {
       name: "AjieBlogs-V4",
       password: "https://dsc.gg/ajidevserver",
       host: "lava-v4.ajieblogs.eu.org",
-      port: 80,
-      secure: false
+      port: 443,
+      secure: true
     }
 };
