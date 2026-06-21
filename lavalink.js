@@ -1,10 +1,10 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "AjieBlogs-V4",
-      password: "https://dsc.gg/ajidevserver",
-      host: "lava-v4.ajieblogs.eu.org",
-      port: 443,
-      secure: true
+      name: "HeavenCloud",
+      password: "heavencloud.in",
+      host: "89.106.84.59",
+      port: 4000,
+      secure: false
     }
 };
