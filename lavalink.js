@@ -1,10 +1,10 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "HeavenCloud",
-      password: "heavencloud.in",
-      host: "89.106.84.59",
-      port: 4000,
-      secure: false
+      name: "MilloHost-V4",
+      password: "https://discord.gg/mjS5J2K3ep",
+      host: "lava-v4.millohost.my.id",
+      port: 443,
+      secure: true
     }
 };
