@@ -1,9 +1,9 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "MilloHost-V4",
-      password: "https://discord.gg/mjS5J2K3ep",
-      host: "lava-v4.millohost.my.id",
+      name: "Serenetia-SSL",
+      password: "https://seretia.link/discord",
+      host: "lavalinkv4.serenetia.com",
       port: 443,
       secure: true
     }
