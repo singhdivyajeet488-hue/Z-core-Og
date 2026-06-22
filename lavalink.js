@@ -1,9 +1,9 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "Serenetia-SSL",
-      password: "https://seretia.link/discord",
-      host: "lavalinkv4.serenetia.com",
+      name: "Lavalink-SSL-Public",
+      password: "youshallnotpass",
+      host: "lava.link",
       port: 443,
       secure: true
     }
