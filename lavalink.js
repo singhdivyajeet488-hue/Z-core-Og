@@ -1,10 +1,11 @@
+
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "bot",
-      password: "DevamOP",
-      host: "lavalink.devamop.in"",
-      port: 443,
-      secure: true
+      name: "GlaceYT",
+      password: "glace",
+      host: "de-01.strixnodes.com",
+      port: 2010,
+      secure: false
     }
-};
+};           
