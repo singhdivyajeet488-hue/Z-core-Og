@@ -1,9 +1,9 @@
 module.exports = {
     enabled: true, 
     lavalink: {
-      name: "Lavalink-SSL-Public",
-      password: "youshallnotpass",
-      host: "lava.link",
+      name: "bot",
+      password: "DevamOP",
+      host: "lavalink.devamop.in"",
       port: 443,
       secure: true
     }
